@@ -1,0 +1,19 @@
+!==================== meshes ====================
+nx 4
+ny 4
+nz 4
+
+!==================== procs =====================
+npx 2
+npy 2
+npz 2
+
+!==================== time ======================
+Tmax 10
+
+!==================== threads ===================
+thread_in_x 4
+thread_in_y 4
+thread_in_z 4
+thread_in_x_pascal 32
+thread_in_y_pascal 16
