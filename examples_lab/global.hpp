@@ -4,14 +4,7 @@
 
 #include <array>
 #include <string>
-
-#ifdef USE_MPI
 #include <mpi.h>
-#endif
-
-#ifdef _CUDA
-#define THREAD_PARAMS
-#endif
 
 class GlobalParams {
 public:
@@ -33,15 +26,12 @@ public:
     double dx, dy, dz;
 
     double theta_cold, theta_hot, alphaG, nu, Ct;
-
-#ifdef THREAD_PARAMS
-    // CUDA 쓰레드 관련 파라미터
-    int thread_in_x, thread_in_y, thread_in_z;
-    int thread_in_x_pascal, thread_in_y_pascal;
-#endif
+    double theta_x_D, theta_y_D;
 
     // MPI 프로세스 분할
     std::array<int,3> np_dim;
 };
+
+extern GlobalParams params;
 
 #endif // GLOBAL_PARAMS_HPP

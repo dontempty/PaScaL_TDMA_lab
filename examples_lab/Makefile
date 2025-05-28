@@ -10,12 +10,12 @@ LDFLAGS    = -L"C:/Program Files (x86)/Microsoft SDKs/MPI/Lib/x64" -lmsmpi
 
 # 타겟 및 소스
 TARGET     = main_lab.exe
-SRCS       = main_lab.cpp global.cpp mpi_topology.cpp
+SRCS       = main_lab.cpp global.cpp mpi_topology.cpp mpi_subdomain.cpp
 OBJS       = $(SRCS:.cpp=.o)
 
 # MPI 실행 옵션
 MPIEXEC    = mpiexec
-NPROCS     = 8
+NPROCS     = 4
 INPUT_FILE = ../run/PARA_INPUT.txt
 
 .PHONY: all run clean
@@ -28,16 +28,20 @@ $(TARGET): $(OBJS)
 	@echo "[Link] $@"
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-# 컴파일 (헤더 의존성 포함)
-main_lab.o: main_lab.cpp headers.hpp
+# 컴파일 규칙 (헤더 의존성 포함)
+main_lab.o: main_lab.cpp global.hpp mpi_topology.hpp mpi_subdomain.hpp
 	@echo "[Compile] $<"
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-global.o: global.cpp headers.hpp
+global.o: global.cpp global.hpp
 	@echo "[Compile] $<"
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 mpi_topology.o: mpi_topology.cpp mpi_topology.hpp
+	@echo "[Compile] $<"
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+mpi_subdomain.o: mpi_subdomain.cpp mpi_subdomain.hpp global.hpp mpi_topology.hpp
 	@echo "[Compile] $<"
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 

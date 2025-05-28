@@ -50,17 +50,17 @@ int main(int argc, char** argv) {
     MPISubdomain sub;
     sub.make(params, npx, rankx, npy, ranky, npz, rankz);
     // // ── 디버그1: 서브도메인 크기/인덱스 확인
-    std::cout << "Rank XYZ = " << rankx << ranky << rankz << "|"
-              << "nx_sub=" << sub.nx_sub
-              << ", ny_sub=" << sub.ny_sub
-              << ", nz_sub=" << sub.nz_sub << "\n    "
-              << ", ista..iend = "
-              << sub.ista << " .. " << sub.iend
-              << ", jsta..jend = "
-              << sub.jsta << " .. " << sub.jend
-              << ", ksta..kend = "
-              << sub.ksta << " .. " << sub.kend
-              << "\n" << std::endl;
+    // std::cout << "Rank XYZ = " << rankx << ranky << rankz << "|"
+    //           << "nx_sub=" << sub.nx_sub
+    //           << ", ny_sub=" << sub.ny_sub
+    //           << ", nz_sub=" << sub.nz_sub << "\n    "
+    //           << ", ista..iend = "
+    //           << sub.ista << " .. " << sub.iend
+    //           << ", jsta..jend = "
+    //           << sub.jsta << " .. " << sub.jend
+    //           << ", ksta..kend = "
+    //           << sub.ksta << " .. " << sub.kend
+    //           << "\n" << std::endl;
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -93,25 +93,30 @@ int main(int argc, char** argv) {
     std::vector<double> theta(nx1 * ny1 * nz1, 0.0);
 
     // 9) 내부 값 초기화
-    sub.initialization(theta.data(), params, ranky, npy, myrank);
+    sub.initialization(theta.data(), params, ranky, npy);
 
-    // 10) 경계 조건 추출
-    sub.boundary(theta.data(), params, ranky, npy);
-    // // ── 디버그3: 경계 버퍼 일부 확인
-    // std::cout << "[Debug] thetaBC3_sub[0..] = ";
-    // for (int idx = 0; idx < std::min((int)sub.thetaBC3_sub.size(), 6); ++idx)
-    //     std::cout << sub.thetaBC3_sub[idx] << " ";
-    // std::cout << "...\n";
-
-    // 11) ghostcell 교환
+    // 10) ghostcell 교환
     sub.ghostcellUpdate(theta.data(), cx, cy, cz, params);
-    std::cout << "myrank: " << myrank << "|"
-              << "Rank XYZ = " << rankx << ranky << rankz << "|"
-              << "n_sub = " << nx1 << ny1 << nz1 << "|";
-    for (int i=0; i<nx1 * ny1 * nz1; ++i) {
-        std::cout << theta[i] << " ";
-    }
-    std::cout << "\n";
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // sub.initialization_debug(theta.data(), params, ranky, npy, myrank);
+    // sub.ghostcellUpdate(theta.data(), cx, cy, cz, params);
+    // std::cout << "myrank: " << myrank << "|"
+    //           << "Rank XYZ = " << rankx << ranky << rankz << "|"
+    //           << "n_sub = " << nx1 << ny1 << nz1 << "|";
+    // for (int i=0; i<nx1 * ny1 * nz1; ++i) {
+    //     std::cout << theta[i] << " ";
+    // }
+    // std::cout << "\n";
+
+    // 11) 경계 조건 추출
+    sub.boundary(theta.data(), params, ranky, npy);
+    // ── 디버그3: 경계 버퍼 일부 확인
+    // std::cout << "Rank XYZ = " << rankx << ranky << rankz << "| "
+    //         << "BC3: " << sub.thetaBC3_sub[0]
+    //         << ", BC4: " << sub.thetaBC4_sub[0]
+    //         << std::endl;
+    
 
     // 12) 정리
     sub.clean();

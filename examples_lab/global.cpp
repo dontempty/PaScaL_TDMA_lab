@@ -49,10 +49,10 @@ void GlobalParams::load(const std::string& filename) {
     // 이제 모든 형식이 param에 들어가 있음
     nx       = std::stoi(param.at("nx"));
     ny       = std::stoi(param.at("ny"));
-    nz       = std::stoi(param.at("nz"));
+    // nz       = std::stoi(param.at("nz"));
     np_dim[0]= std::stoi(param.at("npx"));
     np_dim[1]= std::stoi(param.at("npy"));
-    np_dim[2]= std::stoi(param.at("npz"));
+    // np_dim[2]= std::stoi(param.at("npz"));
     Tmax     = std::stoi(param.at("Tmax"));
 
 #ifdef THREAD_PARAMS
@@ -65,15 +65,18 @@ void GlobalParams::load(const std::string& filename) {
 
     // 고정값 초기화
     Pr = 5.0; Ra = 200.0;
-    nx++; ny++; nz++;   // 1 더해준다.
-    nxm = nx - 1; nym = ny - 1; nzm = nz - 1;
-    nxp = nx + 1; nyp = ny + 1; nzp = nz + 1;
+    nx++; ny++; // nz++;   // 1 더해준다.
+    nxm = nx - 1; nym = ny - 1; // nzm = nz - 1;
+    nxp = nx + 1; nyp = ny + 1; // nzp = nz + 1;
 
     dtStart = 5.0e-3; tStart = 0.0;
     lx = 1.0; ly = 1.0; lz = 1.0;
 
-    theta_cold = -1.0;
-    theta_hot  =  2.0 + theta_cold;
+    // theta_cold = -1.0;
+    // theta_hot  =  2.0 + theta_cold;
+
+    double theta_x_D = 0;
+    double theta_y_D = 0;
     alphaG     =  1.0;
 
     double denom = alphaG * Pr * std::pow(ly,3) * (theta_hot - theta_cold);
@@ -83,5 +86,5 @@ void GlobalParams::load(const std::string& filename) {
     // dx, dy, dz 계산 (옵션)
     dx = lx / (nx - 1);
     dy = ly / (ny - 1);
-    dz = lz / (nz - 1);
+    // dz = lz / (nz - 1);
 }
