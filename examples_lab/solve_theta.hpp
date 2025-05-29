@@ -5,6 +5,7 @@
 #include <mpi.h>
 #include <vector>
 #include "mpi_topology.hpp"
+#include "mpi_subdomain.hpp"
 #include "../scr/pascal_tdma.hpp"
 
 class solve_theta {

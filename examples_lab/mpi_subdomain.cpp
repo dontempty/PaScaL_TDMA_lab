@@ -1,9 +1,14 @@
 // mpi_subdomain.cpp
 #include "mpi_subdomain.hpp"
 #include <cmath>
+#include "iostream"
 #include <algorithm>
 
 static void para_range(int start, int end, int nproc, int rank, int &sta, int &iend) {
+    // 전체 도메인에서 ghost cell 포함한 index를 기준으로 
+    // ghost cell을 뺀 인덱스의 범위 (start <= idx <= end)
+    // ex: |--*--|--*--|--*--|--*--| = 실제 도메인
+    // (--0--)|--start--|--2--|--3--|--end--|(--5--)  = ghost cell을 추가한 도메인
     int len = end - start + 1;
     int base = len / nproc;
     int rem  = len % nproc;
@@ -15,10 +20,10 @@ void MPISubdomain::make(const GlobalParams& params,
                         int npx, int rankx,
                         int npy, int ranky) {
 
-    // nx_sub: 각 block이 가지는 점의 개수
-    para_range(0, params.nx-2, npx, rankx, ista, iend);
+    // (--0--)|--ista--|--2--|--3--|--iend--|(--nx_sub--) 이게 각 block이 가지는 도메인이라고 가정
+    para_range(1, params.nx-1, npx, rankx, ista, iend);
     nx_sub = iend - ista + 2;
-    para_range(0, params.ny-2, npy, ranky, jsta, jend);
+    para_range(1, params.ny-1, npy, ranky, jsta, jend);
     ny_sub = jend - jsta + 2;
 
     // ghost cell 포함한 cell을 기준으로 하는 저장공간
@@ -27,15 +32,15 @@ void MPISubdomain::make(const GlobalParams& params,
     y_sub.resize(ny_sub+1);
     dmy_sub.resize(ny_sub+1);
 
-    theta_x_left_sub.assign((ny_sub+1),0.0);
-    theta_x_right_sub.assign((ny_sub+1),0.0);
-    theta_y_left_sub.assign((nx_sub+1),0.0);
-    theta_y_right_sub.assign((nx_sub+1),0.0);
+    theta_x_left_sub.assign((ny_sub+1), 0.0);
+    theta_x_right_sub.assign((ny_sub+1), 0.0);
+    theta_y_left_sub.assign((nx_sub+1), 0.0);
+    theta_y_right_sub.assign((nx_sub+1), 0.0);
 
-    theta_x_left_index.assign(ny_sub+1,1);
-    theta_x_right_index.assign(ny_sub+1,1);
-    theta_y_left_index.assign(nx_sub+1,1);
-    theta_y_right_index.assign(nx_sub+1,1);
+    theta_x_left_index.assign(ny_sub+1, 1);
+    theta_x_right_index.assign(ny_sub+1, 1);
+    theta_y_left_index.assign(nx_sub+1, 1);
+    theta_y_right_index.assign(nx_sub+1, 1);
 }
 
 void MPISubdomain::clean() {
@@ -141,17 +146,19 @@ void MPISubdomain::indices(const GlobalParams& /*params*/, int rankx, int npx, i
     if (ranky==npy-1)   theta_y_right_index[nx_sub-1] = 0;
 }
 
+// x_sub가 값이 저장되는 위치정보인줄 알았는데, 첫번째로 값이 음수가 들어감 
+// 이유는 모르겠지만 나중에 다시 함 봐야할 듯 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void MPISubdomain::mesh(const GlobalParams& params,
                         int rankx,int ranky,
                         int npx,int npy) {
 
     double dx = params.lx / (params.nx - 1);
-    for(int i=0;i<=nx_sub;++i) {
+    for(int i=0; i<=nx_sub;++i) {
         x_sub[i] = (ista - 1 + i - 1) * dx;
         dmx_sub[i] = dx;
     }
     double dy = params.ly / params.ny;
-    for(int j=0;j<=ny_sub;++j) {
+    for(int j=0; j<=ny_sub;++j) {
         y_sub[j] = (jsta - 1 + j) * dy;
         dmy_sub[j] = dy;
     }
@@ -223,32 +230,24 @@ void MPISubdomain::boundary(const double* theta,
 
     // apply Dirichlet BC at physical walls
     if (ranky==0) {
-        for (int j=0; j<ny1; ++j) {
-            for (int i=0; i<nx1; ++i) {
-                theta_y_left_sub[i] = params.theta_y_D;
-            }
+        for (int i=0; i<nx1; ++i) {
+            theta_y_left_sub[i] = params.theta_y_D;
         }
     }
     if (ranky==npy-1) {
-        for (int j=0; j<ny1; ++j) {
-            for (int i=0; i<nx1; ++i) {
-                theta_y_right_sub[i] = params.theta_y_D;
-            }
+        for (int i=0; i<nx1; ++i) {
+            theta_y_right_sub[i] = params.theta_y_D;
         }
     }
 
     if (rankx==0) {
         for (int j=0; j<ny1; ++j) {
-            for (int i=0; i<nx1; ++i) {
-                theta_x_left_sub[i] = params.theta_x_D;
-            }
+                theta_x_left_sub[j] = params.theta_x_D;
         }
     }
     if (rankx==npx-1) {
         for (int j=0; j<ny1; ++j) {
-            for (int i=0; i<nx1; ++i) {
-                theta_x_right_sub[i] = params.theta_x_D;
-            }
+                theta_x_right_sub[j] = params.theta_x_D;
         }
     }
 }
