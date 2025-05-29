@@ -4,8 +4,8 @@
 
 #include <mpi.h>
 #include <array>
-#include <memory>
-#include <stdexcept>
+#include <memory> // ?
+#include <stdexcept> // ? 
 
 struct CartComm1D {
     int      myrank, nprocs, west_rank, east_rank;

@@ -8,6 +8,8 @@
 #include "global.hpp"
 #include "mpi_topology.hpp"
 
+extern const double Pi;
+
 class MPISubdomain {
 public:
     // 기본 생성자: MPI_Datatype을 MPI_DATATYPE_NULL로 초기화

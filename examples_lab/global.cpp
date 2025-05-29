@@ -74,9 +74,11 @@ void GlobalParams::load(const std::string& filename) {
 
     // theta_cold = -1.0;
     // theta_hot  =  2.0 + theta_cold;
+    theta_x_L_D = 0;
+    theta_x_R_D = 0;
+    theta_y_L_D = 0;
+    theta_y_R_D = 0;
 
-    double theta_x_D = 0;
-    double theta_y_D = 0;
     alphaG     =  1.0;
 
     double denom = alphaG * Pr * std::pow(ly,3) * (theta_hot - theta_cold);

@@ -26,7 +26,7 @@ public:
     double dx, dy, dz;
 
     double theta_cold, theta_hot, alphaG, nu, Ct;
-    double theta_x_D, theta_y_D;
+    double theta_x_R_D, theta_x_L_D, theta_y_L_D, theta_y_R_D;
 
     // MPI 프로세스 분할
     std::array<int,3> np_dim;

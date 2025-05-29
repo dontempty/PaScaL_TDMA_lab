@@ -51,12 +51,19 @@ int main(int argc, char** argv) {
     // std::cout << "myrank: " << myrank << "|"
     //           << "Rank XY = " << rankx << ranky << "|";
     // for (int i=0; i<(sub.nx_sub + 1); ++i) {
-    //     std::cout << sub.x_sub[i] << " ";
+    //     std::cout << sub.y_sub[i] << " ";
     // }
     // std::cout << "\n";
 
     // 7) x, y-방향 경계 인덱스 설정
     sub.indices(params, rankx, npx, ranky, npy);
+    // std::cout << "myrank: " << myrank << "|"
+    //           << "Rank XY = " << rankx << ranky << "|"
+    //           << "n_sub (xy) = " << sub.nx_sub << sub.ny_sub << "|";
+    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
+    //     std::cout << sub.theta_x_left_index[i] << " ";
+    // }
+    // std::cout << "\n";
 
     // 8) theta 필드 (subdomain 크기에 맞춘 flat 배열) 준비
     std::vector<double> theta((sub.ny_sub + 1) * (sub.nx_sub + 1), 0.0);
@@ -68,13 +75,13 @@ int main(int argc, char** argv) {
 
     // 10) ghostcell 교환
     sub.ghostcellUpdate(theta.data(), cx, cy, params);
-    std::cout << "myrank: " << myrank << "|"
-              << "Rank XY = " << rankx << ranky << "|"
-              << "n_sub = " << sub.ny_sub << "," <<sub.nx_sub << "|";
-    for (int i=0; i<(sub.ny_sub + 1) * (sub.nx_sub + 1); ++i) {
-        std::cout << theta[i] << " ";
-    }
-    std::cout << "\n";
+    // std::cout << "myrank: " << myrank << "|"
+    //           << "Rank XY = " << rankx << ranky << "|"
+    //           << "n_sub = " << sub.ny_sub << "," <<sub.nx_sub << "|";
+    // for (int i=0; i<(sub.ny_sub + 1) * (sub.nx_sub + 1); ++i) {
+    //     std::cout << theta[i] << " ";
+    // }
+    // std::cout << "\n";
 
     // 11) bdy값 저장하기
     sub.boundary(theta.data(), params, rankx, npx, ranky, npy);
@@ -86,8 +93,8 @@ int main(int argc, char** argv) {
     
 
     // 12) 솔버 호출해서 실행하기
-    // solve_theta solver;
-    // solver.solve_theta_plan_single(theta.data());
+    solve_theta solver;
+    solver.solve_theta_plan_single(theta.data());
     
     MPI_Finalize();
 };

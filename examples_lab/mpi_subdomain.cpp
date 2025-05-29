@@ -4,6 +4,8 @@
 #include "iostream"
 #include <algorithm>
 
+const double Pi = 3.14159265358979323846;
+
 static void para_range(int start, int end, int nproc, int rank, int &sta, int &iend) {
     // 전체 도메인에서 ghost cell 포함한 index를 기준으로 
     // ghost cell을 뺀 인덱스의 범위 (start <= idx <= end)
@@ -32,15 +34,15 @@ void MPISubdomain::make(const GlobalParams& params,
     y_sub.resize(ny_sub+1);
     dmy_sub.resize(ny_sub+1);
 
-    theta_x_left_sub.assign((ny_sub+1), 0.0);
-    theta_x_right_sub.assign((ny_sub+1), 0.0);
-    theta_y_left_sub.assign((nx_sub+1), 0.0);
-    theta_y_right_sub.assign((nx_sub+1), 0.0);
+    theta_x_left_sub.assign((nx_sub+1), 0.0);
+    theta_x_right_sub.assign((nx_sub+1), 0.0);
+    theta_y_left_sub.assign((ny_sub+1), 0.0);
+    theta_y_right_sub.assign((ny_sub+1), 0.0);
 
-    theta_x_left_index.assign(ny_sub+1, 1);
-    theta_x_right_index.assign(ny_sub+1, 1);
-    theta_y_left_index.assign(nx_sub+1, 1);
-    theta_y_right_index.assign(nx_sub+1, 1);
+    theta_x_left_index.assign(nx_sub+1, 0);
+    theta_x_right_index.assign(nx_sub+1, 0);
+    theta_y_left_index.assign(ny_sub+1, 0);
+    theta_y_right_index.assign(ny_sub+1, 0);
 }
 
 void MPISubdomain::clean() {
@@ -135,15 +137,15 @@ void MPISubdomain::ghostcellUpdate(double* theta,
 }
 
 void MPISubdomain::indices(const GlobalParams& /*params*/, int rankx, int npx, int ranky, int npy) {
-    std::fill(theta_x_left_index.begin(), theta_x_left_index.end(), 1);
-    std::fill(theta_x_right_index.begin(), theta_x_right_index.end(), 1);
-    if (rankx==0)       theta_x_left_index[0]       = 0;
-    if (rankx==npx-1)   theta_x_right_index[ny_sub-1] = 0;
+    std::fill(theta_x_left_index.begin(), theta_x_left_index.end(), 0);
+    std::fill(theta_x_right_index.begin(), theta_x_right_index.end(), 0);
+    if (rankx==0)       theta_x_left_index[1]       = 1;
+    if (rankx==npx-1)   theta_x_right_index[nx_sub-1] = 1;
 
-    std::fill(theta_y_left_index.begin(), theta_y_left_index.end(), 1);
-    std::fill(theta_y_right_index.begin(), theta_y_right_index.end(), 1);
-    if (ranky==0)       theta_y_left_index[0]       = 0;
-    if (ranky==npy-1)   theta_y_right_index[nx_sub-1] = 0;
+    std::fill(theta_y_left_index.begin(), theta_y_left_index.end(), 0);
+    std::fill(theta_y_right_index.begin(), theta_y_right_index.end(), 0);
+    if (ranky==0)       theta_y_left_index[1]       = 1;
+    if (ranky==npy-1)   theta_y_right_index[ny_sub-1] = 1;
 }
 
 // x_sub가 값이 저장되는 위치정보인줄 알았는데, 첫번째로 값이 음수가 들어감 
@@ -154,12 +156,17 @@ void MPISubdomain::mesh(const GlobalParams& params,
 
     double dx = params.lx / (params.nx - 1);
     for(int i=0; i<=nx_sub;++i) {
-        x_sub[i] = (ista - 1 + i - 1) * dx;
+        // x_sub[i] = (ista - 1 + i - 1) * dx;
+        // dmx_sub[i] = dx;
+        x_sub[i] = dx/2 + (ista - 2 + i)*dx;
         dmx_sub[i] = dx;
+
     }
-    double dy = params.ly / params.ny;
+    double dy = params.ly / (params.ny-1);
     for(int j=0; j<=ny_sub;++j) {
-        y_sub[j] = (jsta - 1 + j) * dy;
+        // y_sub[j] = (jsta - 1 + j) * dy;
+        // dmy_sub[j] = dy;
+        y_sub[j] = dy/2 + (jsta - 2 + j)*dy;
         dmy_sub[j] = dy;
     }
     // boundary adjustments omitted
@@ -170,14 +177,13 @@ void MPISubdomain::initialization(double* theta,
                                   int ranky,int npy) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
-    double PI = 3.14159265358979323846;
-    for(int j=0;j<=ny_sub;++j)
-    for(int i=0;i<=nx_sub;++i) {
-        int idx =  j * nx1 + i;
+    for(int i=0;i<=nx_sub;++i)
+    for(int j=0;j<=ny_sub;++j) {
+        int idx =  i * ny1 + j;
         theta[idx] = (params.theta_cold - params.theta_hot) / params.ly * y_sub[j]
                    + params.theta_hot
-                   + sin(4 * PI / params.lx * x_sub[i])
-                   * sin(4 * PI / params.ly * y_sub[j]);
+                   + sin(4 * Pi / params.lx * x_sub[i])
+                   * sin(4 * Pi / params.ly * y_sub[j]);
     }
 }
 
@@ -187,9 +193,9 @@ void MPISubdomain::initialization_debug(double* theta,
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
     double PI = 3.14159265358979323846;
-    for(int j=0;j<=ny_sub;++j)
-    for(int i=0;i<=nx_sub;++i) {
-        int idx =  j * nx1 + i;
+    for(int i=0;i<=nx_sub;++i)
+    for(int j=0;j<=ny_sub;++j) {
+        int idx =  i * ny1 + j;
         theta[idx] = myrank;
     }
 }
@@ -231,23 +237,23 @@ void MPISubdomain::boundary(const double* theta,
     // apply Dirichlet BC at physical walls
     if (ranky==0) {
         for (int i=0; i<nx1; ++i) {
-            theta_y_left_sub[i] = params.theta_y_D;
+            theta_y_left_sub[i] = params.theta_y_L_D;
         }
     }
     if (ranky==npy-1) {
         for (int i=0; i<nx1; ++i) {
-            theta_y_right_sub[i] = params.theta_y_D;
+            theta_y_right_sub[i] = params.theta_y_R_D;
         }
     }
 
     if (rankx==0) {
         for (int j=0; j<ny1; ++j) {
-                theta_x_left_sub[j] = params.theta_x_D;
+                theta_x_left_sub[j] = params.theta_x_L_D;
         }
     }
     if (rankx==npx-1) {
         for (int j=0; j<ny1; ++j) {
-                theta_x_right_sub[j] = params.theta_x_D;
+                theta_x_right_sub[j] = params.theta_x_R_D;
         }
     }
 }
