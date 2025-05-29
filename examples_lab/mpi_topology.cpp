@@ -35,3 +35,5 @@ void MPITopology::defineSubcomm(int dim, CartComm1D& sub) {
     MPI_Comm_size(sub.comm, &sub.nprocs);
     MPI_Cart_shift(sub.comm, 0, 1, &sub.west_rank, &sub.east_rank);
 }
+
+MPITopology topo; 

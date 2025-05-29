@@ -252,3 +252,5 @@ void MPISubdomain::boundary(const double* theta,
         }
     }
 }
+
+MPISubdomain sub;

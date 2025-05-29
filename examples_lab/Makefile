@@ -10,7 +10,7 @@ LDFLAGS    = -L"C:/Program Files (x86)/Microsoft SDKs/MPI/Lib/x64" -lmsmpi
 
 # 타겟 및 소스
 TARGET     = main_lab.exe
-SRCS       = main_lab.cpp global.cpp mpi_topology.cpp mpi_subdomain.cpp
+SRCS       = main_lab.cpp global.cpp mpi_topology.cpp mpi_subdomain.cpp solve_theta.cpp
 OBJS       = $(SRCS:.cpp=.o)
 
 # MPI 실행 옵션
@@ -42,6 +42,10 @@ mpi_topology.o: mpi_topology.cpp mpi_topology.hpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 mpi_subdomain.o: mpi_subdomain.cpp mpi_subdomain.hpp global.hpp mpi_topology.hpp
+	@echo "[Compile] $<"
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+solve_theta.o: solve_theta.cpp solve_theta.hpp
 	@echo "[Compile] $<"
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 

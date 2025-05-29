@@ -22,8 +22,18 @@ int main(int argc, char** argv) {
     params.load(argv[1]); 
 
     // 2) Cartesian 토폴로지 생성
-    MPITopology topo({params.np_dim[0], params.np_dim[1]}, {false, false});
+    // MPITopology topo({params.np_dim[0], params.np_dim[1]}, {false, false});
+    // topo.make();
+    // auto cx = topo.commX();
+    // auto cy = topo.commY();
+
+    topo.init(
+      { params.np_dim[0], params.np_dim[1] },
+      { false, false }
+    );
+
     topo.make();
+
     auto cx = topo.commX();
     auto cy = topo.commY();
 
@@ -76,7 +86,7 @@ int main(int argc, char** argv) {
 
     // 12) 솔버 호출해서 실행하기
     solve_theta solver;
-    solver.solve_theta_plan_single(theta.data(), cx, cy);
+    solver.solve_theta_plan_single(theta.data());
     
     MPI_Finalize();
 };

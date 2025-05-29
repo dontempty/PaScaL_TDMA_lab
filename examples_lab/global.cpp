@@ -88,3 +88,5 @@ void GlobalParams::load(const std::string& filename) {
     dy = ly / (ny - 1);
     // dz = lz / (nz - 1);
 }
+
+GlobalParams params;

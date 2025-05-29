@@ -4,6 +4,7 @@
 
 #include <mpi.h>
 #include <array>
+#include <memory>
 #include <stdexcept>
 
 struct CartComm1D {
@@ -13,8 +14,21 @@ struct CartComm1D {
 
 class MPITopology {
 public:
+    // ① 기본 생성자: 아무 일도 안 함
+    MPITopology() = default;
+
     MPITopology(const std::array<int,2>& dims,
                 const std::array<bool,2>& periods);
+
+    // ③ 런타임 초기화를 위한 init()
+    void init(const std::array<int,2>& dims,
+              const std::array<bool,2>& periods) {
+        dims_    = dims;
+        periods_ = periods;
+        world_cart_ = MPI_COMM_NULL;
+        // comm_x_, comm_y_ 등은 make() 호출 시 정의됩니다
+    }
+
     void make();
     void clean();
     MPI_Comm            worldCart() const;
@@ -28,5 +42,7 @@ private:
     MPI_Comm            world_cart_;
     CartComm1D          comm_x_, comm_y_, comm_z_;
 };
+
+extern MPITopology topo;
 
 #endif // MPI_TOPOLOGY_HPP
