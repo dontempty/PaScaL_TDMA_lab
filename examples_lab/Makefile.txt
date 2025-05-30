@@ -11,8 +11,7 @@ SRC    := main_lab.cpp \
           mpi_topology.cpp \
           mpi_subdomain.cpp \
           solve_theta.cpp \
-          ../scr/pascal_tdma.cpp \
-		  ../scr/tdmas.cpp
+          ../scr/pascal_tdma.cpp
 
 OBJ    := $(SRC:.cpp=.o)
 DEP    := $(SRC:.cpp=.d)

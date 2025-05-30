@@ -34,11 +34,13 @@ void MPISubdomain::make(const GlobalParams& params,
     y_sub.resize(ny_sub+1);
     dmy_sub.resize(ny_sub+1);
 
-    theta_x_left_sub.assign((nx_sub+1), 0.0);
-    theta_x_right_sub.assign((nx_sub+1), 0.0);
-    theta_y_left_sub.assign((ny_sub+1), 0.0);
-    theta_y_right_sub.assign((ny_sub+1), 0.0);
+    // 이놈은 x_left는 x 축의 왼쪽, 즉 y축 크기의 bdy정보를 저장
+    theta_x_left_sub.assign((ny_sub+1), 0.0);
+    theta_x_right_sub.assign((ny_sub+1), 0.0);
+    theta_y_left_sub.assign((nx_sub+1), 0.0);
+    theta_y_right_sub.assign((nx_sub+1), 0.0);
 
+    // 이놈은 각 축에서 어느 위치가 bdy인지 나타내는 index
     theta_x_left_index.assign(nx_sub+1, 0);
     theta_x_right_index.assign(nx_sub+1, 0);
     theta_y_left_index.assign(ny_sub+1, 0);
@@ -64,51 +66,61 @@ void MPISubdomain::makeGhostcellDDType() {
     int subs[2]; int starts[2];
 
     // --- X direction (i) ---
-    subs[0] = ny_sub+1; subs[1] = 1; // ------------------
+    subs[0] = ny_sub+1;
+    subs[1] = 1;
 
     // send right face  (i = nx_sub-1)
-    starts[0] = 0; starts[1] = nx_sub-1;
+    starts[0] = 0;
+    starts[1] = nx_sub-1;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_sendto_E);
     MPI_Type_commit(&ddtype_sendto_E);
     // recv left ghost (i = 0)
+    starts[0] = 0;
     starts[1] = 0;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_recvfrom_W);
     MPI_Type_commit(&ddtype_recvfrom_W);
 
     // send left face   (i = 1)
+    starts[0] = 0;
     starts[1] = 1;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_sendto_W);
     MPI_Type_commit(&ddtype_sendto_W);
     // recv right ghost(i = nx_sub)
+    starts[0] = 0;
     starts[1] = nx_sub;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_recvfrom_E);
     MPI_Type_commit(&ddtype_recvfrom_E);
 
     // --- Y direction (j) ---
-    subs[0] = 1; subs[1] = nx_sub+1; // ------------------
+    subs[0] = 1;
+    subs[1] = nx_sub+1;
 
     // send top face    (j = ny_sub-1)
-    starts[0]=ny_sub-1; starts[1]=0;
+    starts[0] = ny_sub-1;
+    starts[1] = 0;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_sendto_N);
     MPI_Type_commit(&ddtype_sendto_N);
     // recv bottom ghost(j = 0)
-    starts[0]=0;
+    starts[0] = 0;
+    starts[1] = 0;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_recvfrom_S);
     MPI_Type_commit(&ddtype_recvfrom_S);
 
     // send bottom face (j = 1)
-    starts[0]=1;
+    starts[0] = 1;
+    starts[1] = 0;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_sendto_S);
     MPI_Type_commit(&ddtype_sendto_S);
     // recv top ghost   (j = ny_sub)
-    starts[0]=ny_sub;
+    starts[0] = ny_sub;
+    starts[1] = 0;
     MPI_Type_create_subarray(2, sizes, subs, starts, MPI_ORDER_C,
                              MPI_DOUBLE, &ddtype_recvfrom_N);
     MPI_Type_commit(&ddtype_recvfrom_N);
@@ -177,9 +189,9 @@ void MPISubdomain::initialization(double* theta,
                                   int ranky,int npy) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
-    for(int i=0;i<=nx_sub;++i)
-    for(int j=0;j<=ny_sub;++j) {
-        int idx =  i * ny1 + j;
+    for(int j=0;j<=ny_sub;++j)
+    for(int i=0;i<=nx_sub;++i) {
+        int idx =  j * nx1 + i;
         theta[idx] = (params.theta_cold - params.theta_hot) / params.ly * y_sub[j]
                    + params.theta_hot
                    + sin(4 * Pi / params.lx * x_sub[i])
@@ -193,9 +205,9 @@ void MPISubdomain::initialization_debug(double* theta,
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
     double PI = 3.14159265358979323846;
-    for(int i=0;i<=nx_sub;++i)
-    for(int j=0;j<=ny_sub;++j) {
-        int idx =  i * ny1 + j;
+    for(int j=0;j<=ny_sub;++j)
+    for(int i=0;i<=nx_sub;++i) {
+        int idx =  j * nx1 + i;
         theta[idx] = myrank;
     }
 }
@@ -210,50 +222,52 @@ void MPISubdomain::boundary(const double* theta,
 
     // ghost cell 에 있는 값을 가져온다.
     int idx;
-    // x direction
+    // y 축 bdy 정보 담기
     for (int j=0; j<ny1; ++j) {
         // i=0
         idx = j*nx1 + 0;
         theta_x_left_sub[j] = theta[idx];
 
-        // i=nx1-1
-        idx = j*nx1 + (nx_sub);
+        // i = nx1-1
+        idx = j*nx1 + (nx1-1);
         theta_x_right_sub[j] = theta[idx];
-    }
 
-    // y
+
+    }
+    // x 축 bdy 정보 담기
     for (int i=0; i<nx1; ++i) {
         // j=0
         idx = 0*nx1 + i;
         theta_y_left_sub[i] = theta[idx];
 
-        // j = ny1-1
-        idx = (ny_sub)*nx1 + i;
+        // j=ny-1
+        idx = (ny1-1)*nx1 + i;
         theta_y_right_sub[i] = theta[idx];
-
-
     }
 
     // apply Dirichlet BC at physical walls
+
+    // y 축 bdy 정보 담기
     if (ranky==0) {
-        for (int i=0; i<nx1; ++i) {
-            theta_y_left_sub[i] = params.theta_y_L_D;
+        for (int j=0; j<ny1; ++j) {
+            theta_x_left_sub[j] = params.theta_y_L_D;
         }
     }
     if (ranky==npy-1) {
-        for (int i=0; i<nx1; ++i) {
-            theta_y_right_sub[i] = params.theta_y_R_D;
+        for (int j=0; j<ny1; ++j) {
+            theta_x_right_sub[j] = params.theta_y_R_D;
         }
     }
 
+    // x 축 bdy 정보 담기
     if (rankx==0) {
-        for (int j=0; j<ny1; ++j) {
-                theta_x_left_sub[j] = params.theta_x_L_D;
+        for (int i=0; i<nx1; ++i) {
+                theta_y_left_sub[i] = params.theta_x_L_D;
         }
     }
     if (rankx==npx-1) {
-        for (int j=0; j<ny1; ++j) {
-                theta_x_right_sub[j] = params.theta_x_R_D;
+        for (int i=0; i<nx1; ++i) {
+                theta_y_right_sub[i] = params.theta_x_R_D;
         }
     }
 }

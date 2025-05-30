@@ -96,5 +96,7 @@ int main(int argc, char** argv) {
     solve_theta solver;
     solver.solve_theta_plan_single(theta.data());
     
+    sub.clean();
+    topo.clean();
     MPI_Finalize();
 };
