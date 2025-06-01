@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     //           << "Rank XY = " << rankx << ranky << "|"
     //           << "n_sub (xy) = " << sub.nx_sub << sub.ny_sub << "|";
     // for (int i=0; i<(sub.nx_sub + 1); ++i) {
-    //     std::cout << sub.theta_x_left_index[i] << " ";
+    //     std::cout << sub.theta_x_right_index[i] << " ";
     // }
     // std::cout << "\n";
 
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 
     // 12) 솔버 호출해서 실행하기
     solve_theta solver;
-    solver.solve_theta_plan_single(theta.data());
+    // solver.solve_theta_plan_single(theta.data());
     
     sub.clean();
     topo.clean();

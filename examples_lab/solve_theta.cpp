@@ -61,11 +61,13 @@ void solve_theta::solve_theta_plan_single(double* theta)
     // BCFD - HW7 을 푼다.
 
     auto cx = topo.commX();
+    int rankx = cx.myrank;
     PaScaL_TDMA tdma_x;
     tdma_x.PaScaL_TDMA_plan_single_create(px_single, cx.myrank, cx.nprocs, cx.comm, 0);
     std::vector<double> Ax(nx1-2), Bx(nx1-2), Cx(nx1-2), Dx(nx1-2);
 
     auto cy = topo.commY();
+    int ranky = cy.myrank;
     PaScaL_TDMA tdma_y;
     tdma_y.PaScaL_TDMA_plan_single_create(py_single, cy.myrank, cy.nprocs, cy.comm, 0);
     std::vector<double> Ay(ny1-2), By(ny1-2), Cy(ny1-2), Dy(ny1-2);
@@ -74,8 +76,8 @@ void solve_theta::solve_theta_plan_single(double* theta)
     std::vector<double> rhs_y(nx1 * ny1, 0.0);
     std::vector<double> theta_old(nx1 * ny1, 0.0);
     
-    double dt = 0.01;
-    int max_iter = 2;
+    double dt = 0.005;
+    int max_iter = 1;
     int check_num = 25;
     double tol = 1e-12;
     double error = 0;
@@ -191,6 +193,29 @@ void solve_theta::solve_theta_plan_single(double* theta)
 
         // Update ghostcells from the solutions.
         sub.ghostcellUpdate(theta, cx, cy, params);
+
+        // if (ranky == 0) {
+        //     for (int i = 0; i < nx1; ++i) {
+        //         theta[0 * nx1 + i] = 0.0;          // j=0 행 전체를 0
+        //     }
+        // }
+        // if (ranky == params.nyp - 1) {
+        //     for (int i = 0; i < nx1; ++i) {
+        //         theta[(sub.ny_sub+1) * nx1 + i] = 0.0;   // j=ny_sub 행 전체를 0
+        //     }
+        // }
+
+        // //   ▶ X축 경계(왼쪽 i=0, 오른쪽 i=nx_sub)
+        // if (rankx == 0) {
+        //     for (int j = 0; j < ny1; ++j) {
+        //         theta[j * nx1 + 0] = 0.0;          // i=0 열 전체를 0
+        //     }
+        // }
+        // if (rankx == params.nxp - 1) {
+        //     for (int j = 0; j < ny1; ++j) {
+        //         theta[j * nx1 + (sub.nx_sub+1)] = 0.0;   // i=nx_sub 열 전체를 0
+        //     }
+        // }
 
         // break point ----------------------
         error = 0;
