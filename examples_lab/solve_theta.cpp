@@ -73,11 +73,10 @@ void solve_theta::solve_theta_plan_single(double* theta)
     std::vector<double> rhs_x(nx1 * ny1, 0.0);
     std::vector<double> rhs_y(nx1 * ny1, 0.0);
     std::vector<double> theta_old(nx1 * ny1, 0.0);
-
     
     double dt = 0.01;
-    int max_iter = 10000;
-    int check_num = 10;
+    int max_iter = 2;
+    int check_num = 25;
     double tol = 1e-12;
     double error = 0;
     double global_error = 0.0;
@@ -91,6 +90,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
         // ( 2u(i+1) - 3u(i) + u(i-1) ) / dxdx  right_bdy
         // -----------------------------
 
+        // copy theta to theta_old
         for (j=1; j<ny1-1; ++j) {
             for (i=1; i<nx1-1; ++i) {
                 idx = j * nx1 + i;
@@ -107,7 +107,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
         // (1+Ax/2)(1+Ay/2)u_n
         // y ---------
         for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
+            for (i=0; i<nx1; ++i) {
                 idx = j * nx1 + i;
                 idx_jm = (j-1) * nx1 + i;
                 idx_jp = (j+1) * nx1 + i;

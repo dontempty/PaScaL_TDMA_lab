@@ -207,12 +207,14 @@ void MPISubdomain::initialization(double* theta,
                                   const GlobalParams& params) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
+    int myrank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     
     for(int j=0; j<=ny_sub; ++j) {
         for(int i=0; i<=nx_sub; ++i) {
             int idx =  j * nx1 + i;
-            // theta[idx] = 0;
-            theta[idx] = sin(Pi / params.lx * x_sub[i]) * sin(Pi / params.ly * y_sub[j]);
+            theta[idx] = 0;
+            // theta[idx] = sin(Pi / params.lx * x_sub[i]) * sin(Pi / params.ly * y_sub[j]);
         }
     }   
 }
@@ -222,7 +224,6 @@ void MPISubdomain::initialization_debug(double* theta,
                                   int myrank) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
-    double PI = 3.14159265358979323846;
     for(int j=0;j<=ny_sub;++j)
     for(int i=0;i<=nx_sub;++i) {
         int idx =  j * nx1 + i;

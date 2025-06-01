@@ -4,6 +4,7 @@
 #include "mpi_topology.hpp" // 그냥 여기서도 cx, cy extern 해버리자 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #include "mpi_subdomain.hpp" // MPISubdomain sub; 그냥 extern 함
 #include "solve_theta.hpp"
+// #include "save.hpp"
 
 #include <iostream>
 #include <array>
@@ -75,6 +76,17 @@ int main(int argc, char** argv) {
 
     // 10) ghostcell 교환
     sub.ghostcellUpdate(theta.data(), cx, cy, params);
+    // int nx1, ny1;
+    // nx1 = sub.nx_sub + 1; ny1 = sub.ny_sub + 1;
+    // std::vector<double> theta_vec(nx1 * ny1);
+    // for (int j = 0; j < ny1; ++j) {
+    //     for (int i = 0; i < nx1; ++i) {
+    //         theta_vec[j*nx1 + i] = theta[j*nx1 + i];
+    //     }
+    // }
+    // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv");
+
+
     // std::cout << "myrank: " << myrank << "|"
     //           << "Rank XY = " << rankx << ranky << "|"
     //           << "n_sub = " << sub.ny_sub << "," <<sub.nx_sub << "|";
