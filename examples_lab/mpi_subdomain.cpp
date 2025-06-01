@@ -160,8 +160,6 @@ void MPISubdomain::indices(const GlobalParams& /*params*/, int rankx, int npx, i
     if (ranky==npy-1)   theta_y_right_index[ny_sub-1] = 1;
 }
 
-// x_sub가 값이 저장되는 위치정보인줄 알았는데, 첫번째로 값이 음수가 들어감 
-// 이유는 모르겠지만 나중에 다시 함 봐야할 듯 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 void MPISubdomain::mesh(const GlobalParams& params,
                         int rankx,int ranky,
                         int npx,int npy) {
@@ -170,33 +168,53 @@ void MPISubdomain::mesh(const GlobalParams& params,
     for(int i=0; i<=nx_sub;++i) {
         // x_sub[i] = (ista - 1 + i - 1) * dx;
         // dmx_sub[i] = dx;
-        x_sub[i] = dx/2 + (ista - 2 + i)*dx;
-        dmx_sub[i] = dx;
-
+        if (rankx==0 && i==0) {
+             x_sub[i] = 0;
+             dmx_sub[i] = dx/2;
+        }
+        else if (rankx==npx-1 && i==nx_sub) {
+            x_sub[i] = params.lx;
+            dmx_sub[i] = dx/2;
+        }
+        else {
+            x_sub[i] = dx/2 + (ista - 2 + i)*dx;
+            dmx_sub[i] = dx;
+        }
     }
+
     double dy = params.ly / (params.ny-1);
     for(int j=0; j<=ny_sub;++j) {
         // y_sub[j] = (jsta - 1 + j) * dy;
         // dmy_sub[j] = dy;
-        y_sub[j] = dy/2 + (jsta - 2 + j)*dy;
-        dmy_sub[j] = dy;
+
+        if (ranky==0 && j==0) {
+             y_sub[j] = 0;
+             dmy_sub[j] = dy/2;
+        }
+        else if (ranky==npy-1 && j==ny_sub) {
+            y_sub[j] = params.ly;
+            dmy_sub[j] = dy/2;
+        }
+        else {
+            y_sub[j] = dy/2 + (jsta - 2 + j)*dy;
+            dmy_sub[j] = dy;
+        }
     }
     // boundary adjustments omitted
 }
 
 void MPISubdomain::initialization(double* theta,
-                                  const GlobalParams& params,
-                                  int ranky,int npy) {
+                                  const GlobalParams& params) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
-    for(int j=0;j<=ny_sub;++j)
-    for(int i=0;i<=nx_sub;++i) {
-        int idx =  j * nx1 + i;
-        theta[idx] = (params.theta_cold - params.theta_hot) / params.ly * y_sub[j]
-                   + params.theta_hot
-                   + sin(4 * Pi / params.lx * x_sub[i])
-                   * sin(4 * Pi / params.ly * y_sub[j]);
-    }
+    
+    for(int j=0; j<=ny_sub; ++j) {
+        for(int i=0; i<=nx_sub; ++i) {
+            int idx =  j * nx1 + i;
+            // theta[idx] = 0;
+            theta[idx] = sin(Pi / params.lx * x_sub[i]) * sin(Pi / params.ly * y_sub[j]);
+        }
+    }   
 }
 
 void MPISubdomain::initialization_debug(double* theta,
@@ -231,8 +249,6 @@ void MPISubdomain::boundary(const double* theta,
         // i = nx1-1
         idx = j*nx1 + (nx1-1);
         theta_x_right_sub[j] = theta[idx];
-
-
     }
     // x 축 bdy 정보 담기
     for (int i=0; i<nx1; ++i) {
@@ -248,26 +264,26 @@ void MPISubdomain::boundary(const double* theta,
     // apply Dirichlet BC at physical walls
 
     // y 축 bdy 정보 담기
-    if (ranky==0) {
+    if (rankx==0) {
         for (int j=0; j<ny1; ++j) {
             theta_x_left_sub[j] = params.theta_y_L_D;
         }
     }
-    if (ranky==npy-1) {
+    if (rankx==npx-1) {
         for (int j=0; j<ny1; ++j) {
             theta_x_right_sub[j] = params.theta_y_R_D;
         }
     }
 
     // x 축 bdy 정보 담기
-    if (rankx==0) {
+    if (ranky==0) {
         for (int i=0; i<nx1; ++i) {
                 theta_y_left_sub[i] = params.theta_x_L_D;
         }
     }
-    if (rankx==npx-1) {
+    if (ranky==npy-1) {
         for (int i=0; i<nx1; ++i) {
-                theta_y_right_sub[i] = params.theta_x_R_D;
+            theta_y_right_sub[i] = params.theta_x_R_D;
         }
     }
 }

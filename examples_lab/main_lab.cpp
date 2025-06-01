@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 
     // 9) 내부 값 초기화
     // initialization(theta.data(), params, ranky, npy);
-    sub.initialization_debug(theta.data(), params, myrank);
+    sub.initialization(theta.data(), params);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // 10) ghostcell 교환

@@ -45,8 +45,7 @@ public:
 
     // Initialize field in subdomain
     void initialization(double* theta,
-                        const GlobalParams& params,
-                        int ranky, int npy);
+                        const GlobalParams& params);
 
     // Initialize field in subdomain -- debug
     void initialization_debug(double* theta,
