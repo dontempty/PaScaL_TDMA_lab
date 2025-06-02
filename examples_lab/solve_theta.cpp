@@ -115,30 +115,30 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 idx_jp = (j+1) * nx1 + i;
                 dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
 
-                coef_y_a = (dt / 2 / dydy) * ( 1 + (5/3) * sub.theta_y_left_index[j] + (1/3) * sub.theta_y_right_index[j] );
-                coef_y_b = (dt / 2 / dydy) * (-2 -   (2) * sub.theta_y_left_index[j] -   (2) * sub.theta_y_right_index[j] );
-                coef_y_c = (dt / 2 / dydy) * ( 1 + (1/3) * sub.theta_y_left_index[j] + (5/3) * sub.theta_y_right_index[j] );
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -     (2.0) * sub.theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] + (5.0/3.0) * sub.theta_y_right_index[j] );
 
                 rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
             }
         }
         
         // x ---------
-        for (j=0; j<ny1; ++j) {
+        for (j=1; j<ny1-1; ++j) {
             for (i=1; i<nx1-1; ++i) {
                 idx = j * nx1 + i;
                 idx_im = j * nx1 + (i-1);
                 idx_ip = j * nx1 + (i+1);
                 dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
                 
-                coef_x_a = (dt / 2 / dxdx) * ( 1 + (5/3) * sub.theta_x_left_index[i] + (1/3) * sub.theta_x_right_index[i] );
-                coef_x_b = (dt / 2 / dxdx) * (-2 -   (2) * sub.theta_x_left_index[i] -   (2) * sub.theta_x_right_index[i] );
-                coef_x_c = (dt / 2 / dxdx) * ( 1 + (1/3) * sub.theta_x_left_index[i] + (5/3) * sub.theta_x_right_index[i] );
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
 
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
                 // source func (S = 2(2-x^2-y^2))
-                rhs_x[idx] += (dt) * 2 * (2 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
+                rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
                 // rhs_x[idx] += dt * sin(Pi * sub.x_sub[i]) * sin(Pi * sub.y_sub[j]);
             }
         }
@@ -151,9 +151,9 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 idx = j * nx1 + i;
                 dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
                 
-                coef_x_a = (dt / 2 / dxdx) * ( 1 + (5/3) * sub.theta_x_left_index[i] + (1/3) * sub.theta_x_right_index[i] );
-                coef_x_b = (dt / 2 / dxdx) * (-2 -   (2) * sub.theta_x_left_index[i] -   (2) * sub.theta_x_right_index[i] );
-                coef_x_c = (dt / 2 / dxdx) * ( 1 + (1/3) * sub.theta_x_left_index[i] + (5/3) * sub.theta_x_right_index[i] );
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_right_index[i] ) * ( 1.0 - sub.theta_x_left_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -   (2.0) * sub.theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] ) * ( 1.0 - sub.theta_x_right_index[i] );
 
                 Ax[i-1] = -coef_x_a;
                 Bx[i-1] = 1-coef_x_b;
@@ -175,9 +175,9 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 idx = j * nx1 + i;
                 dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
                 
-                coef_y_a = (dt / 2 / dydy) * ( 1 + (5/3) * sub.theta_y_left_index[j] + (1/3) * sub.theta_y_right_index[j] );
-                coef_y_b = (dt / 2 / dydy) * (-2 -   (2) * sub.theta_y_left_index[j] -   (2) * sub.theta_y_right_index[j] );
-                coef_y_c = (dt / 2 / dydy) * ( 1 + (1/3) * sub.theta_y_left_index[j] + (5/3) * sub.theta_y_right_index[j] );
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_right_index[j] ) * ( 1.0 - sub.theta_y_left_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -   (2.0) * sub.theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] ) * ( 1.0 - sub.theta_y_right_index[j] );
 
                 Ay[j-1] = -coef_y_a;
                 By[j-1] = 1-coef_y_b;
