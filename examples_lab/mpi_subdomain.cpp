@@ -169,15 +169,15 @@ void MPISubdomain::mesh(const GlobalParams& params,
         // x_sub[i] = (ista - 1 + i - 1) * dx;
         // dmx_sub[i] = dx;
         if (rankx==0 && i==0) {
-             x_sub[i] = 0;
+             x_sub[i] = params.x0;
              dmx_sub[i] = dx/2;
         }
         else if (rankx==npx-1 && i==nx_sub) {
-            x_sub[i] = params.lx;
+            x_sub[i] = params.xN;
             dmx_sub[i] = dx/2;
         }
         else {
-            x_sub[i] = dx/2 + (ista - 2 + i)*dx;
+            x_sub[i] = params.x0 + dx/2 + (ista - 2 + i)*dx;
             dmx_sub[i] = dx;
         }
     }
@@ -188,15 +188,15 @@ void MPISubdomain::mesh(const GlobalParams& params,
         // dmy_sub[j] = dy;
 
         if (ranky==0 && j==0) {
-             y_sub[j] = 0;
+             y_sub[j] = params.y0;
              dmy_sub[j] = dy/2;
         }
         else if (ranky==npy-1 && j==ny_sub) {
-            y_sub[j] = params.ly;
+            y_sub[j] = params.yN;
             dmy_sub[j] = dy/2;
         }
         else {
-            y_sub[j] = dy/2 + (jsta - 2 + j)*dy;
+            y_sub[j] = params.y0 + dy/2 + (jsta - 2 + j)*dy;
             dmy_sub[j] = dy;
         }
     }
@@ -214,6 +214,7 @@ void MPISubdomain::initialization(double* theta,
         for(int i=0; i<=nx_sub; ++i) {
             int idx =  j * nx1 + i;
             theta[idx] = 0;
+            // theta[idx] = exp( - ( (x_sub[i]-0.5)*(x_sub[i]-0.5) +  (y_sub[j]-0.5)*(y_sub[j]-0.5) ) / 0.1 );
             // theta[idx] = sin(Pi / params.lx * x_sub[i]) * sin(Pi / params.ly * y_sub[j]);
         }
     }   

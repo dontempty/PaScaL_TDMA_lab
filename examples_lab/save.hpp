@@ -7,11 +7,13 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <iomanip>      // std::setprecision, std::fixed
 
 void save_rhs_to_csv(const std::vector<double>& rhs,
                      int nx, int ny,
                      const std::string& folder,
-                     const std::string& filename)
+                     const std::string& filename,
+                     int precision = 6) // 기본 소수점 자리수 6
 {
     // 1) 폴더가 없다면 생성
     std::filesystem::path dir(folder);
@@ -32,7 +34,10 @@ void save_rhs_to_csv(const std::vector<double>& rhs,
         return;
     }
 
-    // 4) CSV로 쓰기
+    // 4) 소수점 자리수 설정
+    ofs << std::fixed << std::setprecision(precision);
+
+    // 5) CSV로 쓰기
     for (int j = 0; j < ny; ++j) {
         for (int i = 0; i < nx; ++i) {
             ofs << rhs[j*nx + i];
@@ -44,6 +49,5 @@ void save_rhs_to_csv(const std::vector<double>& rhs,
     ofs.close();
     std::cout << "Saved rhs to " << filepath << std::endl;
 }
-
 
 #endif // SAVE_HPP

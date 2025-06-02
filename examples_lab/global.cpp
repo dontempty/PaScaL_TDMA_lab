@@ -70,7 +70,10 @@ void GlobalParams::load(const std::string& filename) {
     nxp = nx + 1; nyp = ny + 1; // nzp = nz + 1;
 
     dtStart = 5.0e-3; tStart = 0.0;
-    lx = 1.0; ly = 1.0; lz = 1.0;
+    x0 = -1; xN = 1;
+    y0 = -1; yN = 1;
+    z0 = -1; zN = 1;
+    lx = (xN - x0); ly = (yN - y0); lz = (zN - z0);
 
     // theta_cold = -1.0;
     // theta_hot  =  2.0 + theta_cold;

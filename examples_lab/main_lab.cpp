@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     sub.mesh(params, rankx, ranky, npx, npy);
     // std::cout << "myrank: " << myrank << "|"
     //           << "Rank XY = " << rankx << ranky << "|";
-    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
+    // for (int i=0; i<(sub.ny_sub + 1); ++i) {
     //     std::cout << sub.y_sub[i] << " ";
     // }
     // std::cout << "\n";
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 
     // 12) 솔버 호출해서 실행하기
     solve_theta solver;
-    // solver.solve_theta_plan_single(theta.data());
+    solver.solve_theta_plan_single(theta.data());
     
     sub.clean();
     topo.clean();

@@ -23,6 +23,7 @@ public:
 
     double dt, dtStart, tStart;
     double lx, ly, lz;
+    double x0, xN, y0, yN, z0, zN;
     double dx, dy, dz;
 
     double theta_cold, theta_hot, alphaG, nu, Ct;
