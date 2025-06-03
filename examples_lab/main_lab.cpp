@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     sub.mesh(params, rankx, ranky, npx, npy);
     // std::cout << "myrank: " << myrank << "|"
     //           << "Rank XY = " << rankx << ranky << "|";
-    // for (int i=0; i<(sub.ny_sub + 1); ++i) {
+    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
     //     std::cout << sub.y_sub[i] << " ";
     // }
     // std::cout << "\n";
@@ -61,8 +61,8 @@ int main(int argc, char** argv) {
     // std::cout << "myrank: " << myrank << "|"
     //           << "Rank XY = " << rankx << ranky << "|"
     //           << "n_sub (xy) = " << sub.nx_sub << sub.ny_sub << "|";
-    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
-    //     std::cout << sub.theta_x_right_index[i] << " ";
+    // for (int i=0; i<(sub.ny_sub + 1); ++i) {
+    //     std::cout << sub.theta_y_left_index[i] << " ";
     // }
     // std::cout << "\n";
 

@@ -47,7 +47,7 @@ void save_rhs_to_csv(const std::vector<double>& rhs,
     }
 
     ofs.close();
-    std::cout << "Saved rhs to " << filepath << std::endl;
+    // std::cout << "Saved rhs to " << filepath << std::endl;
 }
 
 #endif // SAVE_HPP

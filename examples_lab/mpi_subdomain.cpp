@@ -210,8 +210,9 @@ void MPISubdomain::initialization(double* theta,
     for(int j=0; j<=ny_sub; ++j) {
         for(int i=0; i<=nx_sub; ++i) {
             int idx =  j * nx1 + i;
-            // theta[idx] = 0;
-            theta[idx] = sin(Pi * x_sub[i]) * sin(Pi * y_sub[j]);
+            theta[idx] = 0.0;
+            // theta[idx] = (1 - x_sub[i]*x_sub[i]) * (1 - y_sub[j]*y_sub[j]);
+            // theta[idx] = sin(Pi * x_sub[i]) * sin(Pi * y_sub[j]);
         }
     }   
 }
