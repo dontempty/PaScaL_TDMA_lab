@@ -97,7 +97,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
 
         // copy theta to theta_old
         for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
+            for (i=0; i<nx1; ++i) {
                 idx = j * nx1 + i;
                 theta_old[idx] = theta[idx];
             }
@@ -112,10 +112,11 @@ void solve_theta::solve_theta_plan_single(double* theta)
         // (1+Ax/2)(1+Ay/2)u_n
         // y ---------
         for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
+            for (i=0; i<nx1; ++i) {
                 idx = j * nx1 + i;
                 idx_jm = (j-1) * nx1 + i;
                 idx_jp = (j+1) * nx1 + i;
+
                 dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
 
                 coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
@@ -125,11 +126,9 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
             }
         }
-
-        sub.ghostcellUpdate(rhs_y.data(), cx, cy, params);
         
         // x ---------
-        for (j=1; j<ny1-1; ++j) {
+        for (j=0; j<ny1; ++j) {
             for (i=1; i<nx1-1; ++i) {
                 idx = j * nx1 + i;
                 idx_im = j * nx1 + (i-1);

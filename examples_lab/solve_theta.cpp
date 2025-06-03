@@ -3,6 +3,7 @@
 #include "../examples_lab/save.hpp"
 #include "iostream"
 #include <cmath>
+#include <chrono> 
 
 void solve_theta::solve_theta_plan_single(double* theta) 
 {   
@@ -86,6 +87,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
     double error = 0;
     double global_error = 0.0;
 
+    auto start = std::chrono::steady_clock::now();
     for (int t_step=0; t_step<max_iter; ++t_step) {
 
         // ---------------------- 차분 공식 -----------------------------
@@ -227,6 +229,12 @@ void solve_theta::solve_theta_plan_single(double* theta)
         }
    
     }   // Time step end------------------------
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    if (myrank==0) {
+        std::cout << "elapsed time: " << elapsed_ms << " ms\n";
+    }
+
     tdma_x.PaScaL_TDMA_plan_single_destroy(px_single);
     tdma_y.PaScaL_TDMA_plan_single_destroy(py_single);
 
@@ -278,7 +286,4 @@ void solve_theta::solve_theta_plan_single(double* theta)
     //     }
     // }
     // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 13);
-
-    // 방금 이걸로 디버깅 했는데 존나 잘 푼다.
-    // 뭐가 문제인거임 ???????????????????????????????????
 }
