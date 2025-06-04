@@ -57,8 +57,6 @@ void solve_theta::solve_theta_plan_single(double* theta)
     // 우선 1. 번 기준으로 rhs, A 만들고 single로 풀기
     // 그런 다음 위 과정을 2번에서 반복
 
-
-    // 일단 포아송 방정식 푼다. 
     // BCFD - HW7 을 푼다.
 
     auto cx = topo.commX();
@@ -148,13 +146,6 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
             }
         }
-
-        // for (int j = 0; j < ny1; ++j) {
-        //         for (int i = 0; i < nx1; ++i) {
-        //             theta_vec[j*nx1 + i] = rhs_x[j*nx1 + i];
-        //         }
-        //     }
-        // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +"_" + std::to_string(t_step+1) +".csv", 13);
 
         // cal -----------------  A system 만들기 ------------------------------------------------
 

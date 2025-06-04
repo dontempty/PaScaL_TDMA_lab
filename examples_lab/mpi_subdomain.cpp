@@ -169,11 +169,11 @@ void MPISubdomain::mesh(const GlobalParams& params,
         
         if (rankx==0 && i==0) {
              x_sub[i] = params.x0;
-             dmx_sub[i] = dx;
+             dmx_sub[i] = dx/2;
         }
         else if (rankx==npx-1 && i==nx_sub) {
             x_sub[i] = params.xN;
-            dmx_sub[i] = dx;
+            dmx_sub[i] = dx/2;
         }
         else {
             x_sub[i] = params.x0 + dx/2 + (ista - 2 + i)*dx;
@@ -186,11 +186,11 @@ void MPISubdomain::mesh(const GlobalParams& params,
 
         if (ranky==0 && j==0) {
              y_sub[j] = params.y0;
-             dmy_sub[j] = dy;
+             dmy_sub[j] = dy/2;
         }
         else if (ranky==npy-1 && j==ny_sub) {
             y_sub[j] = params.yN;
-            dmy_sub[j] = dy;
+            dmy_sub[j] = dy/2;
         }
         else {
             y_sub[j] = params.y0 + dy/2 + (jsta - 2 + j)*dy;
