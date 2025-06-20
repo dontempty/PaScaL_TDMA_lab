@@ -28,9 +28,10 @@ int main(int argc, char** argv) {
     // auto cx = topo.commX();
     // auto cy = topo.commY();
 
+    // x, y, z
     topo.init(
       { params.np_dim[0], params.np_dim[1] },
-      { false, false }
+      { false, true }
     );
 
     topo.make();

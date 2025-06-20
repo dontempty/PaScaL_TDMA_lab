@@ -158,3 +158,80 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve(ptdma_plan_single& plan,
     //     std::cout << D[i]<< " ";
     // }
 }
+
+void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
+                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D, int n_row) {
+
+    // The modified Thomas algorithm : elimination of lower diagonal elements.
+    A[0] = A[0]/B[0];
+    D[0] = D[0]/B[0];
+    C[0] = C[0]/B[0];
+
+    A[1] = A[1]/B[1];
+    D[1] = D[1]/B[1];
+    C[1] = C[1]/B[1];
+
+    double r;
+    for (int i=2; i<n_row; ++i) {
+        r = 1/(B[i] - A[i]*C[i-1]);
+        D[i] = r*(D[i] - A[i]*D[i-1]);
+        C[i] = r*C[i];
+        A[i] = -r*A[i]*A[i-1];
+    }
+
+    // The modified Thomas algorithm : elimination of upper diagonal elements.
+    for (int i=n_row-3; i>=1; --i) {
+        D[i] = D[i] - C[i]*D[i+1];
+        A[i] = A[i] - C[i]*A[i+1];
+        C[i] = -C[i]*C[i+1];
+    }
+
+    r = 1/(1 - A[1]*C[0]);
+    D[0] = r*(D[0]-C[0]*D[1]);
+    A[0] = r*A[0];
+    C[0] = -r*C[0]*C[1];
+
+    // Construct a reduced tridiagonal system of equations per each rank. Each process has two reduced rows.
+    plan.A_rd[0] = A[0];    plan.A_rd[1] = A[n_row-1];
+    plan.B_rd[0] = 1;       plan.B_rd[1] = 1;
+    plan.C_rd[0] = C[0];    plan.C_rd[1] = C[n_row-1];
+    plan.D_rd[0] = D[0];    plan.D_rd[1] = D[n_row-1];
+
+    // Gather the coefficients of the reduced tridiagonal system to a defined rank, plan%gather_rank.
+    std::vector<int> request(4);
+
+    MPI_Igather(plan.A_rd.data(), 2, MPI_DOUBLE, 
+                plan.A_rt.data(), 2, MPI_DOUBLE,
+                plan.gather_rank, plan.ptdma_world, &request[0]);
+    MPI_Igather(plan.B_rd.data(), 2, MPI_DOUBLE, 
+                plan.B_rt.data(), 2, MPI_DOUBLE,
+                plan.gather_rank, plan.ptdma_world, &request[1]);
+    MPI_Igather(plan.C_rd.data(), 2, MPI_DOUBLE, 
+                plan.C_rt.data(), 2, MPI_DOUBLE,
+                plan.gather_rank, plan.ptdma_world, &request[2]);
+    MPI_Igather(plan.D_rd.data(), 2, MPI_DOUBLE, 
+                plan.D_rt.data(), 2, MPI_DOUBLE,
+                plan.gather_rank, plan.ptdma_world, &request[3]);
+    MPI_Waitall(4, request.data(), MPI_STATUS_IGNORE);
+
+    // Solve the reduced cyclic tridiagonal system on plan%gather_rank.
+    if (plan.myrank==plan.gather_rank) {
+        tdma_cycl_single(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_row_rt);
+    };
+
+    // Distribute the solutions to each rank.
+    MPI_Iscatter(plan.D_rt.data(), 2, MPI_DOUBLE,
+                plan.D_rd.data(), 2, MPI_DOUBLE,
+                plan.gather_rank, plan.ptdma_world, &request[0]);
+                
+    MPI_Waitall(1, request.data(), MPI_STATUS_IGNORE);
+
+    // Update solutions of the modified tridiagonal system with the solutions of the reduced tridiagonal system.
+    D[0] = plan.D_rd[0];
+    D[n_row-1] = plan.D_rd[1];
+    for (int i=1; i<n_row-1; ++i) {
+        D[i] = D[i] - A[i]*D[0] - C[i]*D[n_row-1];
+    };
+}
+
+

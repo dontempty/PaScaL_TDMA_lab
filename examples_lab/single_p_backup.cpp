@@ -22,38 +22,6 @@ void tdma_single(std::vector<double>& a, std::vector<double>& b, std::vector<dou
     }
 }
 
-void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d, int n1) {
-
-    int i;
-    double rr;
-
-    std::vector<double> e(n1, 0.0);
-    e[1] = -a[1];
-    e[n1-1] = -c[n1-1];
-
-    d[1] = d[1]/b[1];
-    e[1] = e[1]/b[1];
-    c[1] = c[1]/b[1];
-
-    for (i=2; i<=n1-1; ++i) {
-        rr = 1.0/(b[i]-a[i]*c[i-1]);
-        d[i] = rr*(d[i]-a[i]*d[i-1]);
-        e[i] = rr*(e[i]-a[i]*e[i-1]);
-        c[i] = rr*c[i];
-    }
-
-    for (i=n1-2; i>=1; --i) {
-        d[i] = d[i]-c[i]*d[i+1];
-        e[i] = e[i]-c[i]*e[i+1];
-    }
-
-    d[0] = (d[0]-a[0]*d[n1-1]-c[0]*d[1])/(b[0]+a[0]*e[n1-1]+c[0]*e[1]);
-
-    for (i=1; i<=n1-1; ++i) {
-        d[i] = d[i] + d[0]*e[i];
-    }
-}
-
 int main() {
     int i, j;
 
@@ -64,8 +32,8 @@ int main() {
 
     double x0 = -1;
     double xN = 1;
-    double y0 = -0.5;
-    double yN = 1.5;
+    double y0 = -1;
+    double yN = 1;
 
     double dy = (yN-y0)/Ny;
     double dx = (xN-x0)/Nx;
@@ -124,7 +92,7 @@ int main() {
     double Pi = 3.14159265358979323846;
 
     auto start = std::chrono::steady_clock::now();
-    for (int t_step=1; t_step<max_iter; ++t_step) {
+    for (int t_step=0; t_step<max_iter; ++t_step) {
 
         // copy theta to theta_old
         for (j=1; j<ny1-1; ++j) {
@@ -135,8 +103,6 @@ int main() {
         }
 
         // Calculating r.h.s -----------------------------------------------------------------------------------------------------
-        // 여기서는 y축으로 periodic bdy를 적용한다.
-
 
         // rhs init
         std::fill(rhs_x.begin(), rhs_x.end(), 0.0);
@@ -150,16 +116,9 @@ int main() {
                 idx_jp = (j+1) * nx1 + i;
                 dydy = dy*dy;
 
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
-
-                if (j==1) {
-                    idx_jm = (ny1-2) * nx1 + i;
-                }
-                if (j==ny1-2) {
-                    idx_jp = (1) * nx1 + i;
-                }
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * theta_y_left_index[j] + (1.0/3.0) * theta_y_right_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -     (2.0) * theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] + (5.0/3.0) * theta_y_right_index[j] );
 
                 rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
             }
@@ -179,6 +138,7 @@ int main() {
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
                 // source func (S = 2(2-x^2-y^2))
+                // rhs_x[idx] += (dt) * 2.0 * (2.0 - X[i]*X[i] - Y[j]*Y[j]);
                 rhs_x[idx] += (dt) * -sin(Pi * X[i])*sin(Pi * Y[j]);
             }
         }
@@ -211,16 +171,16 @@ int main() {
                 idx = j * nx1 + i;
                 dydy = dy*dy;
                 
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_right_index[j] ) * ( 1.0 - theta_y_left_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -   (2.0) * theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] ) * ( 1.0 - theta_y_right_index[j] );
 
                 Ay[j-1] = -coef_y_a;
                 By[j-1] = 1-coef_y_b;
                 Cy[j-1] = -coef_y_c;
                 Dy[j-1] = theta_half[idx];
             }
-            tdma_cycl_single(Ay, By, Cy, Dy, ny1-2);
+            tdma_single(Ay, By, Cy, Dy, ny1-2);
             // Return the solution to the theta. line-by-line.
             for (j=1; j<ny1-1; ++j) {
                 idx = j * nx1 + i;
@@ -243,7 +203,7 @@ int main() {
         }
 
         if (global_error < tol) {
-            std::cout << "Converge in " << dt*t_step << "step" << std::endl;
+            std::cout << "Converge in " << t_step << "step" << std::endl;
             break;
         }
     }

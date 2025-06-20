@@ -29,4 +29,8 @@ public:
     void PaScaL_TDMA_single_solve(ptdma_plan_single& plan, 
                                   std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d,
                                   int n_row);
+    
+    void PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
+                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D,
+                                int n_row);
 };
