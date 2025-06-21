@@ -1,17 +1,14 @@
 // #include "headers.hpp"
 #include <mpi.h>
-#include "global.hpp" // params 을 그냥 extern함
-#include "mpi_topology.hpp" // 그냥 여기서도 cx, cy extern 해버리자 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#include "mpi_subdomain.hpp" // MPISubdomain sub; 그냥 extern 함
+#include "global.hpp"         // params 생성
+#include "mpi_topology.hpp"   // topo 생성
+#include "mpi_subdomain.hpp"  // MPISubdomain sub; 그냥 extern 함
 #include "solve_theta.hpp"
 // #include "save.hpp"
 
 #include <iostream>
 #include <array>
 #include <string>
-
-
-// 
 
 int main(int argc, char** argv) {
 
@@ -21,12 +18,6 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
     params.load(argv[1]); 
-
-    // 2) Cartesian 토폴로지 생성
-    // MPITopology topo({params.np_dim[0], params.np_dim[1]}, {false, false});
-    // topo.make();
-    // auto cx = topo.commX();
-    // auto cy = topo.commY();
 
     // x, y, z
     topo.init(

@@ -143,9 +143,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
                 // source func (S = 2(2-x^2-y^2))
-                // rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
-                rhs_x[idx] += (dt) * -2.0 * Pi*Pi * (sin(Pi * sub.x_sub[i]) * sin(Pi * sub.y_sub[j]));
-
+                rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
             }
         }
 

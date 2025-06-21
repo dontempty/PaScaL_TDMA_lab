@@ -143,7 +143,6 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
                 // source func (S = 2(2-x^2-y^2))
-                // rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
                 rhs_x[idx] += (dt) * -(sin(Pi * sub.x_sub[i]) * sin(Pi * sub.y_sub[j]));
 
             }
@@ -238,46 +237,6 @@ void solve_theta::solve_theta_plan_single(double* theta)
         }
     }
     save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 15);
-
-    // ---------------tdma_single ---- debug ------------------------------------------------
-    // std::vector<double> rhs(nx1 * ny1, 0.0);
-    // for (j=1; j<ny1-1; ++j) {
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-    //         if (cx.myrank==0 && i==1) {
-    //             rhs[idx] = 6;
-    //         } else if (cx.myrank==1 && i==nx1-2) {
-    //             rhs[idx] = 6;
-    //         } else {
-
-    //             rhs[idx] = 6;
-    //         }
-    //     }
-    // }
-    
-    // for (j=1; j<ny1-1; ++j) {
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-
-    //         Ax[i-1] = 1;
-    //         Bx[i-1] = 4;
-    //         Cx[i-1] = 1;
-    //         Dx[i-1] = rhs[idx];
-    //     }
-    //     tdma_x.PaScaL_TDMA_single_solve(px_single, Ax, Bx, Cx, Dx, nx1-2);
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-    //         theta[idx] = Dx[i-1];
-    //     }
-    // }
-
-    // for (int j = 0; j < ny1; ++j) {
-    //     for (int i = 0; i < nx1; ++i) {
-    //         theta_vec[j*nx1 + i] = theta[j*nx1 + i];
-    //     }
-    // }
-    // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 13);
-
 
 
     // ---------------tdma_cycle_single ---- debug ------------------------------------------------

@@ -33,4 +33,42 @@ public:
     void PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
                                 std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D,
                                 int n_row);
+
+    struct ptdma_plan_many {
+        int ptdma_world;
+        int n_sys_rt;
+        int n_row_rt;
+
+        int nprocs;
+
+        // Send buffer related variables for MPI_Ialltoallw
+        // ddtype_FS: A, B, C, D 계수들을 보내는 buffer
+        // count_send: alltoall 에서 i 번째에 보내는 데이터 개수
+        // displ_send: alltoall 에서 i 번째에 보내는 데이터 주소
+        std::vector<int> ddtype_FS, count_send, displ_send;
+
+        // Recv. buffer related variables MPI_Ialltoallw 
+        // ddtype_Bs: A, B, C, D 계수들을 받는 buffer
+        // count_recv: alltoall 에서 i 번째로 부터 받는 데이터 개수
+        // displ_recv: alltoall 에서 i 번째로 부터 받는 데이터 주소
+        std::vector<int> ddtype_Bs, count_recv, displ_recv;
+
+        // Coefficient arrays after reduction, a: lower, b: diagonal, c: upper, d: rhs.
+        // The orginal dimension (m:n) is reduced to (m:2)
+        // singel 이였으면 m을 순차적으로 풀었지만 여기서는 한번에 모은다.
+        std::vector<double> A_rd, B_rd, C_rd, D_rd;
+
+        // Coefficient arrays after reduction, a: lower, b: diagonal, c: upper, d: rhs.
+        // The reduced dimension (m:2) changes to (m/np: 2*np) after transpose.
+        std::vector<double> A_rt, B_rt, C_rt, D_rt;
+
+    };
+
+    void PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys, int myrank, int nprocs, MPI_Comm mpi_world);
+
+    void PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nprocs);
+
+    void PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
+                                std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d,
+                                int n_sys, int n_row)
 };

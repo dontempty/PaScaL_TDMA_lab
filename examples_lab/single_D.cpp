@@ -22,6 +22,38 @@ void tdma_single(std::vector<double>& a, std::vector<double>& b, std::vector<dou
     }
 }
 
+void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d, int n1) {
+
+    int i;
+    double rr;
+
+    std::vector<double> e(n1, 0.0);
+    e[1] = -a[1];
+    e[n1-1] = -c[n1-1];
+
+    d[1] = d[1]/b[1];
+    e[1] = e[1]/b[1];
+    c[1] = c[1]/b[1];
+
+    for (i=2; i<=n1-1; ++i) {
+        rr = 1.0/(b[i]-a[i]*c[i-1]);
+        d[i] = rr*(d[i]-a[i]*d[i-1]);
+        e[i] = rr*(e[i]-a[i]*e[i-1]);
+        c[i] = rr*c[i];
+    }
+
+    for (i=n1-2; i>=1; --i) {
+        d[i] = d[i]-c[i]*d[i+1];
+        e[i] = e[i]-c[i]*e[i+1];
+    }
+
+    d[0] = (d[0]-a[0]*d[n1-1]-c[0]*d[1])/(b[0]+a[0]*e[n1-1]+c[0]*e[1]);
+
+    for (i=1; i<=n1-1; ++i) {
+        d[i] = d[i] + d[0]*e[i];
+    }
+}
+
 int main() {
     int i, j;
 
@@ -89,7 +121,6 @@ int main() {
     double tol = 1e-12;
     double error = 0;
     double global_error = 0.0;
-    double Pi = 3.14159265358979323846;
 
     auto start = std::chrono::steady_clock::now();
     for (int t_step=0; t_step<max_iter; ++t_step) {
@@ -138,8 +169,7 @@ int main() {
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
                 // source func (S = 2(2-x^2-y^2))
-                // rhs_x[idx] += (dt) * 2.0 * (2.0 - X[i]*X[i] - Y[j]*Y[j]);
-                rhs_x[idx] += (dt) * -sin(Pi * X[i])*sin(Pi * Y[j]);
+                rhs_x[idx] += (dt) * 2.0 * (2.0 - X[i]*X[i] - Y[j]*Y[j]);
             }
         }
 
@@ -216,7 +246,7 @@ int main() {
             theta_vec[j*nx1 + i] = theta[j*nx1 + i];
         }
     }
-    save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_single.csv", 15);
+    save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_single.csv", 13);
 
     return 0;
 }

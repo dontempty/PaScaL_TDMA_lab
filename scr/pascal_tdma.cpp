@@ -1,10 +1,13 @@
 #include <mpi.h>
 #include <vector>
 #include "iostream"
+#include <numeric>
+
 #include "pascal_tdma.hpp"
 #include "tdmas.hpp"
 #include "../examples_lab/mpi_subdomain.hpp"
 #include "../examples_lab/mpi_topology.hpp"
+#include "para_range.hpp"
 
 // Create a plan for a single tridiagonal system of equations.
 void PaScaL_TDMA::PaScaL_TDMA_plan_single_create(ptdma_plan_single& plan, int myrank, int nprocs, MPI_Comm mpi_world, int gather_rank) {
@@ -160,7 +163,8 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve(ptdma_plan_single& plan,
 }
 
 void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
-                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D, int n_row) {
+                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D,
+                                int n_row) {
 
     // The modified Thomas algorithm : elimination of lower diagonal elements.
     A[0] = A[0]/B[0];
@@ -235,3 +239,127 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan,
 }
 
 
+
+// Create a plan for a single tridiagonal system of equations.
+void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys, int myrank, int nprocs, MPI_Comm mpi_world) {
+
+    int i, ierr;
+    int ista, iend;                                         // First and last indices of assigned range in many tridiagonal systems of equations 
+    std::vector<int> bigsize(2), subsize(2), start(2);      // Temporary variables of derived data type (DDT)
+    int ns_rd, nr_rd;                                       // Dimensions of many reduced tridiagonal systems
+    int ns_rt, nr_rt;                                       // Dimensions of many reduced tridiagonal systems after transpose
+    std::vector<int> ns_rt_array;                           // Array specifying the number of tridiagonal systems for each process after transpose
+
+    // [ ][ ] | [ ][ ] | [ ][ ]
+    // [ ][ ] | [ ][ ] | [ ][ ]
+    // [ ][ ] | [ ][ ] | [ ][ ]
+    // ------------------------
+    // [ ][ ] | [ ][ ] | [ ][ ]
+    // [ ][ ] | [ ][ ] | [ ][ ]
+    // [0][0] | [0][0] | [0][0]
+
+    // n_sys : x 축으로 푼다고 가정할 때, 한 불록의 y 개수 (3)
+    // 각 y 마다 reduced system을 가지는데, 한 블록 기준으로 y에 있는거 까지 다 모은다.
+
+
+
+    plan.nprocs = nprocs;
+
+    //     // Specify dimensions for reduced systems.
+    ns_rd = n_sys;
+    nr_rd = 2;
+
+    // Specify dimensions for reduced systems after transpose.
+    // ns_rt         : divide the number of tridiagonal systems of equations per each process  
+    // ns_rt_array   : save the ns_rt in ns_rt_array for defining the DDT
+    // nr_rt         : dimensions of the reduced tridiagonal systems in the solving direction, nr_rd*nprocs
+    para_range(1, ns_rd, nprocs, myrank, ista, iend);
+    ns_rt = iend - ista + 1;
+    std::vector<int> ns_rt_array(nprocs);
+    MPI_Allgather(&ns_rt, 1, MPI_INT,
+                  &ns_rt_array, 1, MPI_INT,
+                  mpi_world);
+    nr_rt = nr_rd*nprocs;
+
+    // Assign plan variables and allocate coefficient arrays.
+    plan.n_sys_rt = ns_rt;
+    plan.n_row_rt = nr_rt;
+    plan.ptdma_world = mpi_world;
+
+    // 2d array (ns_rd, nr_rd) or (ns_rt, nr_rt)
+    plan.A_rd.resize(ns_rd*nr_rd), plan.B_rd.resize(ns_rd*nr_rd), plan.C_rd.resize(ns_rd*nr_rd), plan.D_rd.resize(ns_rd*nr_rd);
+    plan.A_rt.resize(ns_rt*nr_rt), plan.B_rt.resize(ns_rt*nr_rt), plan.C_rt.resize(ns_rt*nr_rt), plan.D_rt.resize(ns_rt*nr_rt);
+
+    // Building the DDTs.
+    plan.ddtype_FS.resize(nprocs), plan.ddtype_Bs.resize(nprocs);
+
+    for (i=0; i<nprocs; ++i) {
+        // DDT for sending coefficients of the reduced tridiagonal systems using MPI_Ialltoallw communication.
+        bigsize[0] = ns_rd;
+        bigsize[1] = nr_rd;
+        subsize[0] = ns_rt_array[i];
+        subsize[1] = nr_rd;
+        start[0] = std::accumulate(ns_rt_array.begin(), ns_rt_array.end(), 0) - ns_rt_array[i];
+        start[1] = 0;
+        MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(),
+                                        MPI_ORDER_C, MPI_DOUBLE,
+                                        &plan.ddtype_FS[i]);
+        MPI_Type_commit(&plan.ddtype_FS[i]);
+        
+        // DDT for receiving coefficients for the transposed systems of reduction using MPI_Ialltoallw communication.
+        bigsize[0] = ns_rt;
+        bigsize[1] = nr_rt;
+        subsize[0] = ns_rt;
+        subsize[1] = nr_rd;
+        start[0] = 0;
+        start[1] = nr_rd*i;
+        MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(),
+                                        MPI_ORDER_C, MPI_DOUBLE,
+                                        &plan.ddtype_Bs[i]);
+        MPI_Type_commit(&plan.ddtype_Bs[i]);
+    }
+
+    // Buffer counts and displacements for MPI_Ialltoallw.
+    // All buffer counts are 1 and displacements are 0 due to the defined DDT.
+    // resize + init 이랑 deep copy랑 성능을 비교 했는데 이게 조금 더 빠름 (크기 1e+6 까지, 1e+10 이렇게 하니까 느려짐)
+    plan.count_send = std::vector<int>(nprocs, 1);
+    plan.displ_send = std::vector<int>(nprocs, 0);
+    plan.count_recv = std::vector<int>(nprocs, 1);
+    plan.displ_recv = std::vector<int>(nprocs, 0);     
+
+    // Deallocate local array.
+    if (!ns_rt_array.empty()) {
+        ns_rt_array.clear();         // 내용 제거
+        // ns_rt_array.shrink_to_fit(); // capacity까지 제거
+    }
+}
+
+void PaScaL_TDMA::PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nprocs) {
+
+    for (int i=0; i<nprocs; ++i) {
+        MPI_Type_free(&plan.ddtype_FS[i]);
+        MPI_Type_free(&plan.ddtype_Bs[i]);
+    }
+
+    plan.ddtype_FS.shrink_to_fit(); plan.ddtype_FS.shrink_to_fit();
+    plan. count_send.shrink_to_fit(); plan.displ_send.shrink_to_fit();
+    plan.count_recv.shrink_to_fit(); plan.displ_recv.shrink_to_fit();
+    plan.A_rd.shrink_to_fit(); plan.B_rd.shrink_to_fit(); plan.C_rd.shrink_to_fit(); plan.D_rd.shrink_to_fit();
+    plan.A_rt.shrink_to_fit(); plan.B_rt.shrink_to_fit(); plan.C_rt.shrink_to_fit(); plan.D_rt.shrink_to_fit();
+}
+
+void PaScaL_TDMA::PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
+                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D,
+                                int n_sys, int n_row) {
+
+    // Temporary variables for computation and parameters for MPI functions.
+    int i, j;
+    std::vector<int> request(4);
+    double r;
+    int idx;
+
+    // for (i=0; i<n_sys; ++i) {
+    //     idx = 
+    //     A[]
+    // }
+}

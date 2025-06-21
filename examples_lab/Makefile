@@ -12,7 +12,8 @@ SRC    := main_lab.cpp \
           mpi_subdomain.cpp \
           solve_theta.cpp \
           ../scr/pascal_tdma.cpp \
-		  ../scr/tdmas.cpp
+		  ../scr/tdmas.cpp \
+		  ../scr/para_range.cpp
 
 OBJ    := $(SRC:.cpp=.o)
 DEP    := $(SRC:.cpp=.d)

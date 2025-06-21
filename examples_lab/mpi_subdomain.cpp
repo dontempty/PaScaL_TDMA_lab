@@ -1,22 +1,11 @@
 // mpi_subdomain.cpp
 #include "mpi_subdomain.hpp"
+#include "../scr/para_range.hpp"
 #include <cmath>
 #include "iostream"
 #include <algorithm>
 
 const double Pi = 3.14159265358979323846;
-
-static void para_range(int start, int end, int nproc, int rank, int &sta, int &iend) {
-    // 전체 도메인에서 ghost cell 포함한 index를 기준으로 
-    // ghost cell을 뺀 인덱스의 범위 (start <= idx <= end)
-    // ex: |--*--|--*--|--*--|--*--| = 실제 도메인
-    // (--0--)|--start--|--2--|--3--|--end--|(--5--)  = ghost cell을 추가한 도메인
-    int len = end - start + 1;
-    int base = len / nproc;
-    int rem  = len % nproc;
-    sta = start + rank * base + std::min(rank, rem);
-    iend = sta + base - 1 + (rank < rem ? 1 : 0);
-}
 
 void MPISubdomain::make(const GlobalParams& params,
                         int npx, int rankx,
@@ -210,11 +199,14 @@ void MPISubdomain::initialization(double* theta,
     for(int j=0; j<=ny_sub; ++j) {
         for(int i=0; i<=nx_sub; ++i) {
             int idx =  j * nx1 + i;
+
+            // Dirichlet
             theta[idx] = 0.0;
-            // theta[idx] = (1 - x_sub[i]*x_sub[i]) * (1 - y_sub[j]*y_sub[j]);
-            // theta[idx] = sin(Pi * x_sub[i]) * sin(Pi * y_sub[j]);
         }
-    }   
+    }
+
+    // Dirichlet이 0이 아닌 경우 따로 정확한 경계값을 init에서 넣어줘야함
+    
 }
 
 void MPISubdomain::initialization_debug(double* theta,
@@ -223,11 +215,11 @@ void MPISubdomain::initialization_debug(double* theta,
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
     for(int j=0;j<=ny_sub;++j)
-    for(int i=0;i<=nx_sub;++i) {
-        int idx =  j * nx1 + i;
-        theta[idx] = myrank;
+        for(int i=0;i<=nx_sub;++i) {
+            int idx =  j * nx1 + i;
+            theta[idx] = myrank;
+        }
     }
-}
 
 void MPISubdomain::boundary(const double* theta,
                             const GlobalParams& params,

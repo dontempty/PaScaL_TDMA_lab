@@ -64,8 +64,8 @@ int main() {
 
     double x0 = -1;
     double xN = 1;
-    double y0 = -0.5;
-    double yN = 1.5;
+    double y0 = -1;
+    double yN = 1;
 
     double dy = (yN-y0)/Ny;
     double dx = (xN-x0)/Nx;
@@ -123,8 +123,25 @@ int main() {
     double global_error = 0.0;
     double Pi = 3.14159265358979323846;
 
+    auto exact = [&](double x, double y, double t) {
+        return (-1/(2*M_PI*M_PI)) * sin(M_PI * x) * sin(M_PI * y) * exp(-2 * M_PI * M_PI * t) + cos(M_PI * x) * cos(M_PI * y);
+    };
+
+    for (int j = 0; j < ny1; ++j) {
+        for (int i = 0; i < nx1; ++i) {
+            theta[j * nx1 + i] = exact(X[i], Y[j], 0);
+        }
+    }
+
     auto start = std::chrono::steady_clock::now();
-    for (int t_step=1; t_step<max_iter; ++t_step) {
+    for (int t_step=0; t_step<max_iter; ++t_step) {
+
+        // 매 시간 단계에서 (TDMA 후에) 경계 업데이트 추가:
+        double t_now = t_step * dt;
+        for (int j = 0; j < ny1; ++j) {
+            theta[j * nx1 + 0] = exact(X[0], Y[j], t_now);
+            theta[j * nx1 + nx1 - 1] = exact(X[nx1 - 1], Y[j], t_now);
+        }
 
         // copy theta to theta_old
         for (j=1; j<ny1-1; ++j) {
@@ -135,8 +152,6 @@ int main() {
         }
 
         // Calculating r.h.s -----------------------------------------------------------------------------------------------------
-        // 여기서는 y축으로 periodic bdy를 적용한다.
-
 
         // rhs init
         std::fill(rhs_x.begin(), rhs_x.end(), 0.0);
@@ -178,8 +193,8 @@ int main() {
 
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
-                // source func (S = 2(2-x^2-y^2))
-                rhs_x[idx] += (dt) * -sin(Pi * X[i])*sin(Pi * Y[j]);
+                // source func
+                rhs_x[idx] += (dt) * (2.0 * Pi*Pi) * cos(Pi * X[i])*cos(Pi * Y[j]);
             }
         }
 

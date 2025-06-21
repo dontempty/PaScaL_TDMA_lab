@@ -71,7 +71,7 @@ void GlobalParams::load(const std::string& filename) {
 
     dtStart = 5.0e-3; tStart = 0.0;
     x0 = -1; xN = 1;
-    y0 = -0.5; yN = 1.5;
+    y0 = -1; yN = 1;
     z0 = -1; zN = 1;
     lx = (xN - x0); ly = (yN - y0); lz = (zN - z0);
 
@@ -84,7 +84,7 @@ void GlobalParams::load(const std::string& filename) {
 
     alphaG     =  1.0;
 
-    double denom = alphaG * Pr * std::pow(ly,3) * (theta_hot - theta_cold);
+    double denom = alphaG * Pr * std::pow(ly, 3) * (theta_hot - theta_cold);
     nu = 1.0 / std::sqrt(Ra / denom);
     Ct = nu / Pr;
 

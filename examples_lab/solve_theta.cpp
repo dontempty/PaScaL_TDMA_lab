@@ -86,7 +86,7 @@ void solve_theta::solve_theta_plan_single(double* theta)
     double global_error = 0.0;
 
     auto start = std::chrono::steady_clock::now();
-    for (int t_step=0; t_step<max_iter; ++t_step) {
+    for (int t_step=1; t_step<max_iter; ++t_step) {
 
         // ---------------------- 차분 공식 -----------------------------
         // bdy 에서 거리 정보가 달라진다.
@@ -118,9 +118,9 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 idx_jp = (j+1) * nx1 + i;
                 dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
 
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -     (2.0) * sub.theta_y_right_index[j] );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] + (5.0/3.0) * sub.theta_y_right_index[j] );
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
 
                 rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
             }
@@ -142,9 +142,8 @@ void solve_theta::solve_theta_plan_single(double* theta)
 
                 rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
-                // source func (S = 2(2-x^2-y^2))
-                // rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
-                rhs_x[idx] += (dt) * -2.0 * Pi*Pi * (sin(Pi * sub.x_sub[i]) * sin(Pi * sub.y_sub[j]));
+                // source func 
+                rhs_x[idx] += (dt) * 2*Pi*Pi * (cos(Pi * sub.x_sub[i]) * cos(Pi * sub.y_sub[j]));
 
             }
         }
@@ -180,16 +179,16 @@ void solve_theta::solve_theta_plan_single(double* theta)
                 idx = j * nx1 + i;
                 dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
                 
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_right_index[j] ) * ( 1.0 - sub.theta_y_left_index[j] );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -   (2.0) * sub.theta_y_right_index[j] );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] ) * ( 1.0 - sub.theta_y_right_index[j] );
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
 
                 Ay[j-1] = -coef_y_a;
                 By[j-1] = 1-coef_y_b;
                 Cy[j-1] = -coef_y_c;
                 Dy[j-1] = theta_half[idx];
             }
-            tdma_y.PaScaL_TDMA_single_solve(py_single, Ay, By, Cy, Dy, ny1-2);
+            tdma_y.PaScaL_TDMA_single_solve_cycle(py_single, Ay, By, Cy, Dy, ny1-2);
             // Return the solution to the theta. line-by-line.
             for (j=1; j<ny1-1; ++j) {
                 idx = j * nx1 + i;
@@ -217,10 +216,9 @@ void solve_theta::solve_theta_plan_single(double* theta)
         }
 
         if (global_error < tol) {
-            std::cout << "Converge in " << t_step << "step" << std::endl;
+            std::cout << "Converge in " << dt*t_step << "step" << std::endl;
             break;
         }
-   
     }   // Time step end------------------------
     auto end = std::chrono::steady_clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -239,46 +237,6 @@ void solve_theta::solve_theta_plan_single(double* theta)
         }
     }
     save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 15);
-
-    // ---------------tdma_single ---- debug ------------------------------------------------
-    // std::vector<double> rhs(nx1 * ny1, 0.0);
-    // for (j=1; j<ny1-1; ++j) {
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-    //         if (cx.myrank==0 && i==1) {
-    //             rhs[idx] = 6;
-    //         } else if (cx.myrank==1 && i==nx1-2) {
-    //             rhs[idx] = 6;
-    //         } else {
-
-    //             rhs[idx] = 6;
-    //         }
-    //     }
-    // }
-    
-    // for (j=1; j<ny1-1; ++j) {
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-
-    //         Ax[i-1] = 1;
-    //         Bx[i-1] = 4;
-    //         Cx[i-1] = 1;
-    //         Dx[i-1] = rhs[idx];
-    //     }
-    //     tdma_x.PaScaL_TDMA_single_solve(px_single, Ax, Bx, Cx, Dx, nx1-2);
-    //     for (i=1; i<nx1-1; ++i) {
-    //         idx = j * nx1 + i;
-    //         theta[idx] = Dx[i-1];
-    //     }
-    // }
-
-    // for (int j = 0; j < ny1; ++j) {
-    //     for (int i = 0; i < nx1; ++i) {
-    //         theta_vec[j*nx1 + i] = theta[j*nx1 + i];
-    //     }
-    // }
-    // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 13);
-
 
 
     // ---------------tdma_cycle_single ---- debug ------------------------------------------------
