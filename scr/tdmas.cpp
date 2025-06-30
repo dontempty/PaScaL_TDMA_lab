@@ -53,3 +53,34 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
     }
 }
 
+void tdma_many(
+    std::vector<std::vector<double>> &a,
+    std::vector<std::vector<double>> &b,
+    std::vector<std::vector<double>> &c,
+    std::vector<std::vector<double>> &d,
+    int n1, int n2) {
+        
+    std::vector<double> r(n1);
+
+    // Forward elimination
+    for (int i = 0; i < n1; ++i) {
+        d[i][0] /= b[i][0];
+        c[i][0] /= b[i][0];
+    }
+
+    for (int j = 1; j < n2; ++j) {
+        for (int i = 0; i < n1; ++i) {
+            r[i] = 1.0 / (b[i][j] - a[i][j] * c[i][j - 1]);
+            d[i][j] = r[i] * (d[i][j] - a[i][j] * d[i][j - 1]);
+            c[i][j] = r[i] * c[i][j];
+        }
+    }
+
+    // Back substitution
+    for (int j = n2 - 2; j >= 0; --j) {
+        for (int i = 0; i < n1; ++i) {
+            d[i][j] = d[i][j] - c[i][j] * d[i][j + 1];
+        }
+    }
+}
+

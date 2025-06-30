@@ -95,44 +95,9 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve(ptdma_plan_single& plan,
                 plan.gather_rank, plan.ptdma_world, &request[3]);
     MPI_Waitall(4, request.data(), MPI_STATUS_IGNORE);
 
-    // A_rt 에 잘 담기고 있는지 확인 해야하는데 일단 pass (귀찮음)
-    // int myrank;
-    // MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    // std::cout << "A_rd| " << "myrank: " << myrank << "|";
-    // for (int i=0; i<plan.n_row_rt; ++i) {
-    //     std::cout << plan.A_rd[i] << " ";
-    // }
-
     // 3) gather_rank가 reduced system 을 tdma_single 으로 푼다.
     if (plan.myrank==plan.gather_rank) {
-        // auto cx = topo.commX();
-        // std::cout << "myrank_x: " << cx.myrank << "|D_rt| ";
-        // for (int i=0; i<4; ++i) {
-        //     std::cout << plan.D_rt[i] << " ";
-        // }
-        // std::cout << " \n";
-        // std::cout << "myrank_x: " << cx.myrank << "|A_rt| ";
-        // for (int i=0; i<4; ++i) {
-        //     std::cout << plan.A_rt[i] << " ";
-        // }
-        // std::cout << " \n";
-        // std::cout << "myrank_x: " << cx.myrank << "|B_rt| ";
-        // for (int i=0; i<4; ++i) {
-        //     std::cout << plan.B_rt[i] << " ";
-        // }
-        // std::cout << " \n";
-        // std::cout << "myrank_x: " << cx.myrank << "|C_rt| ";
-        // for (int i=0; i<4; ++i) {
-        //     std::cout << plan.C_rt[i] << " ";
-        // }
-        
         tdma_single(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_row_rt);
-        // auto cx = topo.commX();
-        // std::cout << "myrank_x: " << cx.myrank << "|D_rt|";
-        // for (int i=0; i<4; ++i) {
-        //     std::cout << plan.D_rt[i] << " ";
-        // }
-        // std::cout << "------- \n";
     };
     
     // 4) MPI_Iscatter로 각 랭크에 값을 뿌린다.
@@ -141,25 +106,12 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve(ptdma_plan_single& plan,
                 plan.gather_rank, plan.ptdma_world, &request[0]);
     MPI_Waitall(1, request.data(), MPI_STATUS_IGNORE);
 
-    // auto cx = topo.commX();
-    // std::cout << "myrank_x: " << cx.myrank << "|D_rd|";
-    // for (int i=0; i<2; ++i) {
-    //     std::cout << plan.D_rd[i] << " ";
-    // }
-
     // 5) 이젠 그냥 알아서 푼다.
-
     D[0] = plan.D_rd[0];
     D[n_row-1] = plan.D_rd[1];
     for (int i=1; i<n_row-1; ++i) {
         D[i] = D[i] - A[i]*D[0] - C[i]*D[n_row-1];
     };
-
-    // auto cx = topo.commX();
-    // std::cout << "myrank_x: " << cx.myrank << "|D|: ";
-    // for (int i=0; i<n_row; ++i) {
-    //     std::cout << D[i]<< " ";
-    // }
 }
 
 void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
@@ -238,7 +190,9 @@ void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan,
     };
 }
 
-
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Create a plan for a single tridiagonal system of equations.
 void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys, int myrank, int nprocs, MPI_Comm mpi_world) {
@@ -248,7 +202,7 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
     std::vector<int> bigsize(2), subsize(2), start(2);      // Temporary variables of derived data type (DDT)
     int ns_rd, nr_rd;                                       // Dimensions of many reduced tridiagonal systems
     int ns_rt, nr_rt;                                       // Dimensions of many reduced tridiagonal systems after transpose
-    std::vector<int> ns_rt_array;                           // Array specifying the number of tridiagonal systems for each process after transpose
+    std::vector<int> ns_rt_array(nprocs);                   // Array specifying the number of tridiagonal systems for each process after transpose
 
     // [ ][ ] | [ ][ ] | [ ][ ]
     // [ ][ ] | [ ][ ] | [ ][ ]
@@ -261,11 +215,9 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
     // n_sys : x 축으로 푼다고 가정할 때, 한 불록의 y 개수 (3)
     // 각 y 마다 reduced system을 가지는데, 한 블록 기준으로 y에 있는거 까지 다 모은다.
 
-
-
     plan.nprocs = nprocs;
 
-    //     // Specify dimensions for reduced systems.
+    // Specify dimensions for reduced systems.
     ns_rd = n_sys;
     nr_rd = 2;
 
@@ -275,9 +227,8 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
     // nr_rt         : dimensions of the reduced tridiagonal systems in the solving direction, nr_rd*nprocs
     para_range(1, ns_rd, nprocs, myrank, ista, iend);
     ns_rt = iend - ista + 1;
-    std::vector<int> ns_rt_array(nprocs);
     MPI_Allgather(&ns_rt, 1, MPI_INT,
-                  &ns_rt_array, 1, MPI_INT,
+                  ns_rt_array.data(), 1, MPI_INT,
                   mpi_world);
     nr_rt = nr_rd*nprocs;
 
@@ -287,24 +238,44 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
     plan.ptdma_world = mpi_world;
 
     // 2d array (ns_rd, nr_rd) or (ns_rt, nr_rt)
-    plan.A_rd.resize(ns_rd*nr_rd), plan.B_rd.resize(ns_rd*nr_rd), plan.C_rd.resize(ns_rd*nr_rd), plan.D_rd.resize(ns_rd*nr_rd);
-    plan.A_rt.resize(ns_rt*nr_rt), plan.B_rt.resize(ns_rt*nr_rt), plan.C_rt.resize(ns_rt*nr_rt), plan.D_rt.resize(ns_rt*nr_rt);
+    // 여기서는 init이 없기 때문인지 resize를 해주는게 더 빠름. (re declare랑 비교했을 때)
+    plan.A_rd.resize(ns_rd);
+    plan.B_rd.resize(ns_rd);
+    plan.C_rd.resize(ns_rd);
+    plan.D_rd.resize(ns_rd);
+    for (int i = 0; i < ns_rd; ++i) {
+        plan.A_rd[i].resize(nr_rd);
+        plan.B_rd[i].resize(nr_rd);
+        plan.C_rd[i].resize(nr_rd);
+        plan.D_rd[i].resize(nr_rd);
+    }
+
+    plan.A_rt.resize(ns_rt);
+    plan.B_rt.resize(ns_rt);
+    plan.C_rt.resize(ns_rt);
+    plan.D_rt.resize(ns_rt);
+    for (int i = 0; i < ns_rt; ++i) {
+        plan.A_rt[i].resize(nr_rt);
+        plan.B_rt[i].resize(nr_rt);
+        plan.C_rt[i].resize(nr_rt);
+        plan.D_rt[i].resize(nr_rt);
+    }
 
     // Building the DDTs.
-    plan.ddtype_FS.resize(nprocs), plan.ddtype_Bs.resize(nprocs);
-
+    plan.ddtype_Fs.resize(nprocs), plan.ddtype_Bs.resize(nprocs);
+    int sum = 0;
     for (i=0; i<nprocs; ++i) {
         // DDT for sending coefficients of the reduced tridiagonal systems using MPI_Ialltoallw communication.
         bigsize[0] = ns_rd;
         bigsize[1] = nr_rd;
         subsize[0] = ns_rt_array[i];
         subsize[1] = nr_rd;
-        start[0] = std::accumulate(ns_rt_array.begin(), ns_rt_array.end(), 0) - ns_rt_array[i];
+        start[0] = sum;
         start[1] = 0;
         MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(),
                                         MPI_ORDER_C, MPI_DOUBLE,
-                                        &plan.ddtype_FS[i]);
-        MPI_Type_commit(&plan.ddtype_FS[i]);
+                                        &plan.ddtype_Fs[i]);
+        MPI_Type_commit(&plan.ddtype_Fs[i]);
         
         // DDT for receiving coefficients for the transposed systems of reduction using MPI_Ialltoallw communication.
         bigsize[0] = ns_rt;
@@ -313,7 +284,7 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
         subsize[1] = nr_rd;
         start[0] = 0;
         start[1] = nr_rd*i;
-        MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(),
+        MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(), 
                                         MPI_ORDER_C, MPI_DOUBLE,
                                         &plan.ddtype_Bs[i]);
         MPI_Type_commit(&plan.ddtype_Bs[i]);
@@ -321,7 +292,7 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
 
     // Buffer counts and displacements for MPI_Ialltoallw.
     // All buffer counts are 1 and displacements are 0 due to the defined DDT.
-    // resize + init 이랑 deep copy랑 성능을 비교 했는데 이게 조금 더 빠름 (크기 1e+6 까지, 1e+10 이렇게 하니까 느려짐)
+    // resize + init 이랑 re declare 성능을 비교 했는데 후자가 조금 더 빠름 (init도 같이 진행하기 때문)
     plan.count_send = std::vector<int>(nprocs, 1);
     plan.displ_send = std::vector<int>(nprocs, 0);
     plan.count_recv = std::vector<int>(nprocs, 1);
@@ -337,11 +308,11 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
 void PaScaL_TDMA::PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nprocs) {
 
     for (int i=0; i<nprocs; ++i) {
-        MPI_Type_free(&plan.ddtype_FS[i]);
+        MPI_Type_free(&plan.ddtype_Fs[i]);
         MPI_Type_free(&plan.ddtype_Bs[i]);
     }
 
-    plan.ddtype_FS.shrink_to_fit(); plan.ddtype_FS.shrink_to_fit();
+    plan.ddtype_Fs.shrink_to_fit(); plan.ddtype_Fs.shrink_to_fit();
     plan. count_send.shrink_to_fit(); plan.displ_send.shrink_to_fit();
     plan.count_recv.shrink_to_fit(); plan.displ_recv.shrink_to_fit();
     plan.A_rd.shrink_to_fit(); plan.B_rd.shrink_to_fit(); plan.C_rd.shrink_to_fit(); plan.D_rd.shrink_to_fit();
@@ -349,17 +320,149 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nproc
 }
 
 void PaScaL_TDMA::PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
-                                std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D,
+                                std::vector<std::vector<double>>& A, 
+                                std::vector<std::vector<double>>& B, 
+                                std::vector<std::vector<double>>& C, 
+                                std::vector<std::vector<double>>& D,
                                 int n_sys, int n_row) {
 
     // Temporary variables for computation and parameters for MPI functions.
     int i, j;
-    std::vector<int> request(4);
+    std::vector<MPI_Request> request(4);
     double r;
     int idx;
 
-    // for (i=0; i<n_sys; ++i) {
-    //     idx = 
-    //     A[]
+    for (i = 0; i < n_sys; ++i) {
+        A[i][0] /= B[i][0];
+        D[i][0] /= B[i][0];
+        C[i][0] /= B[i][0];
+
+        A[i][1] /= B[i][1];
+        D[i][1] /= B[i][1];
+        C[i][1] /= B[i][1];
+    }
+
+    for (j = 2; j < n_row; ++j) {
+        for (i = 0; i < n_sys; ++i) {
+            r = 1.0 / (B[i][j] - A[i][j] * C[i][j - 1]);
+            D[i][j] = r * (D[i][j] - A[i][j] * D[i][j - 1]);
+            C[i][j] = r * C[i][j];
+            A[i][j] = -r * A[i][j] * A[i][j - 1];
+        }
+    }
+
+    for (j = n_row - 3; j >= 1; --j) {
+        for (i = 0; i < n_sys; ++i) {
+            D[i][j] -= C[i][j] * D[i][j + 1];
+            A[i][j] -= C[i][j] * A[i][j + 1];
+            C[i][j] = -C[i][j] * C[i][j + 1];
+        }
+    }
+
+    for (i = 0; i < n_sys; ++i) {
+        r = 1.0 / (1.0 - A[i][1] * C[i][0]);
+        D[i][0] = r * (D[i][0] - C[i][0] * D[i][1]);
+        A[i][0] *= r;
+        C[i][0] = -r * C[i][0] * C[i][1];
+
+        plan.A_rd[i][0] = A[i][0];
+        plan.A_rd[i][1] = A[i][n_row - 1];
+        plan.B_rd[i][0] = 1.0;
+        plan.B_rd[i][1] = 1.0;
+        plan.C_rd[i][0] = C[i][0];
+        plan.C_rd[i][1] = C[i][n_row - 1];
+        plan.D_rd[i][0] = D[i][0];
+        plan.D_rd[i][1] = D[i][n_row - 1];
+    }
+
+    std::vector<double> flat_A_rd(n_sys * 2);
+    std::vector<double> flat_B_rd(n_sys * 2);
+    std::vector<double> flat_C_rd(n_sys * 2);
+    std::vector<double> flat_D_rd(n_sys * 2);
+    std::vector<double> flat_A_rt(plan.n_sys_rt * plan.n_row_rt);
+    std::vector<double> flat_B_rt(plan.n_sys_rt * plan.n_row_rt);
+    std::vector<double> flat_C_rt(plan.n_sys_rt * plan.n_row_rt);
+    std::vector<double> flat_D_rt(plan.n_sys_rt * plan.n_row_rt);
+
+    for (int i = 0; i < n_sys; ++i) {
+        flat_A_rd[i * 2 + 0] = plan.A_rd[i][0];
+        flat_A_rd[i * 2 + 1] = plan.A_rd[i][1];
+
+        flat_B_rd[i * 2 + 0] = plan.B_rd[i][0];
+        flat_B_rd[i * 2 + 1] = plan.B_rd[i][1];
+
+        flat_C_rd[i * 2 + 0] = plan.C_rd[i][0];
+        flat_C_rd[i * 2 + 1] = plan.C_rd[i][1];
+
+        flat_D_rd[i * 2 + 0] = plan.D_rd[i][0];
+        flat_D_rd[i * 2 + 1] = plan.D_rd[i][1];
+    }
+    
+    MPI_Ialltoallw(flat_A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    flat_A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[0]);
+    MPI_Ialltoallw(flat_B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    flat_B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[1]);
+    MPI_Ialltoallw(flat_C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    flat_C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[2]);     
+    MPI_Ialltoallw(flat_D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    flat_D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[3]);
+   
+    MPI_Waitall(4, request.data(), MPI_STATUSES_IGNORE);
+
+    // 각 랭크에서 통신 직후 확인용 출력
+    // int myrank;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    // std::cout << "=== Rank " << myrank << " | flat_D_rt ===\n";
+    // for (int i = 0; i < plan.n_sys_rt; ++i) {
+    //     std::cout << "  sys " << i << ": \n";
+    //     for (int j = 0; j < plan.n_row_rt; ++j) {
+    //         std::cout << flat_D_rt[i * plan.n_row_rt + j] << " ";
+    //     }
+    //     std::cout << "\n";
     // }
+
+    for (int i=0; i<plan.n_sys_rt; ++i) {
+        for (int j=0; j<plan.n_row_rt; ++j) {
+            plan.A_rt[i][j] = flat_A_rt[i * plan.n_row_rt + j];
+            plan.B_rt[i][j] = flat_B_rt[i * plan.n_row_rt + j];
+            plan.C_rt[i][j] = flat_C_rt[i * plan.n_row_rt + j];
+            plan.D_rt[i][j] = flat_D_rt[i * plan.n_row_rt + j];
+        }
+    }
+
+    tdma_many(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_sys_rt, plan.n_row_rt);
+
+    for (int i=0; i<plan.n_sys_rt; ++i) {
+        for (int j=0; j<plan.n_row_rt; ++j) {
+            flat_D_rt[i * plan.n_row_rt + j] = plan.D_rt[i][j];
+        }
+    }
+
+    // 일단 이렇게 하면 작동은 잘 되는데 왜 잘 작동하는지는 모르겠다
+    // D_rt -> D_rd의 경우 보내는 입장이 바뀌었기 때문에 ddtype을 (ddtype_Bs, ddtype_F) 이렇게 사용해야 하는줄 알았는데 반대로 사용해야 잘 작동함.
+    MPI_Ialltoallw(flat_D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Fs.data(),
+               flat_D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Bs.data(),
+               plan.ptdma_world, &request[0]);
+
+    MPI_Waitall(1, request.data(), MPI_STATUSES_IGNORE);
+
+    for (int i = 0; i < n_sys; ++i) {
+        plan.D_rd[i][0] = flat_D_rd[i * 2 + 0];
+        plan.D_rd[i][1] = flat_D_rd[i * 2 + 1];
+    }
+
+    for (i = 0; i < n_sys; ++i) {
+        D[i][0] = plan.D_rd[i][0];
+        D[i][n_row - 1] = plan.D_rd[i][1];
+    }
+
+    for (j = 1; j < n_row - 1; ++j) {
+        for (i = 0; i < n_sys; ++i) {
+            D[i][j] -= A[i][j] * D[i][0] + C[i][j] * D[i][n_row - 1];
+        }
+    }
 }

@@ -272,6 +272,15 @@ void solve_theta::solve_theta_plan_single(double* theta)
     
     tdma_x.PaScaL_TDMA_many_solve(px_many, Ax, Bx, Cx, Dx, ny1-2, nx1-2);
 
+    // std::cout << "rank=" << myrank << "| \n";
+    // for (j=1; j<ny1-1; ++j) {
+    //     for (i=1; i<nx1-1; ++i) {
+
+    //         std::cout << Dx[j-1][i-1] << " ";
+    //     }
+    // }
+    // std::cout << "\n";
+
     for (j=1; j<ny1-1; ++j) {
         for (i=1; i<nx1-1; ++i) {
             idx = j * nx1 + i;
