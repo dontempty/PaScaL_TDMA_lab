@@ -37,16 +37,12 @@ void solve_theta::solve_theta_plan_single(double* theta)
     double eRHS;                                         // From eAPI to eACK
 
     // 1) 계획(plan) 객체 선언
-    PaScaL_TDMA::ptdma_plan_single px_single, py_single;
+    PaScaL_TDMA::ptdma_plan_many px_many, py_many;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     
     // t_curr = tStart 나중에 heat eq 풀면 그 때 사용하자
     // dt = dtstart
-
-    if (myrank==0) {
-        std::cout << "Start to solve" << std::endl;
-    }
 
     // 4. [ ][ ] | [ ][ ] | [ ][ ]
     // 3. [ ][ ] | [ ][ ] | [ ][ ]
@@ -62,14 +58,20 @@ void solve_theta::solve_theta_plan_single(double* theta)
     auto cx = topo.commX();
     int rankx = cx.myrank;
     PaScaL_TDMA tdma_x;
-    tdma_x.PaScaL_TDMA_plan_single_create(px_single, cx.myrank, cx.nprocs, cx.comm, 0);
-    std::vector<double> Ax(nx1-2), Bx(nx1-2), Cx(nx1-2), Dx(nx1-2);
+    tdma_x.PaScaL_TDMA_plan_many_create(px_many, sub.ny_sub-1, cx.myrank, cx.nprocs, cx.comm);
+    std::vector<std::vector<double>> Ax(ny1-2, std::vector<double>(nx1-2));
+    std::vector<std::vector<double>> Bx(ny1-2, std::vector<double>(nx1-2));
+    std::vector<std::vector<double>> Cx(ny1-2, std::vector<double>(nx1-2));
+    std::vector<std::vector<double>> Dx(ny1-2, std::vector<double>(nx1-2));
 
     auto cy = topo.commY();
     int ranky = cy.myrank;
     PaScaL_TDMA tdma_y;
-    tdma_y.PaScaL_TDMA_plan_single_create(py_single, cy.myrank, cy.nprocs, cy.comm, 0);
-    std::vector<double> Ay(ny1-2), By(ny1-2), Cy(ny1-2), Dy(ny1-2);
+    tdma_y.PaScaL_TDMA_plan_many_create(py_many, sub.nx_sub-1, cy.myrank, cy.nprocs, cy.comm);
+    std::vector<std::vector<double>> Ay(nx1-2, std::vector<double>(ny1-2));
+    std::vector<std::vector<double>> By(nx1-2, std::vector<double>(ny1-2));
+    std::vector<std::vector<double>> Cy(nx1-2, std::vector<double>(ny1-2));
+    std::vector<std::vector<double>> Dy(nx1-2, std::vector<double>(ny1-2));
     
     std::vector<double> rhs_x(nx1 * ny1, 0.0);
     std::vector<double> rhs_y(nx1 * ny1, 0.0);
@@ -85,158 +87,205 @@ void solve_theta::solve_theta_plan_single(double* theta)
     double error = 0;
     double global_error = 0.0;
 
-    auto start = std::chrono::steady_clock::now();
-    for (int t_step=1; t_step<max_iter; ++t_step) {
+    // auto start = std::chrono::steady_clock::now();
+    // for (int t_step=0; t_step<max_iter; ++t_step) {
 
-        // ---------------------- 차분 공식 -----------------------------
-        // bdy 에서 거리 정보가 달라진다.
-        // ( u(i+1) - 3u(i) + 2u(i-1) ) / (3/4)dxdx  left_bdy
-        // ( u(i+1) - 2u(i) + u(i-1) ) / (3/4)dxdx   interior
-        // ( 2u(i+1) - 3u(i) + u(i-1) ) / (3/4)dxdx  right_bdy
-        // -----------------------------
+    //     // ---------------------- 차분 공식 -----------------------------
+    //     // bdy 에서 거리 정보가 달라진다.
+    //     // ( u(i+1) - 3u(i) + 2u(i-1) ) / (3/4)dxdx  left_bdy
+    //     // ( u(i+1) - 2u(i) + u(i-1) ) / (3/4)dxdx   interior
+    //     // ( 2u(i+1) - 3u(i) + u(i-1) ) / (3/4)dxdx  right_bdy
+    //     // -----------------------------
 
-        // copy theta to theta_old
-        for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                theta_old[idx] = theta[idx];
-            }
-        }
+    //     // copy theta to theta_old
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             theta_old[idx] = theta[idx];
+    //         }
+    //     }
 
-        // Calculating r.h.s -----------------------------------------------------------------------------------------------------
+    //     // Calculating r.h.s -----------------------------------------------------------------------------------------------------
 
-        // rhs init
-        std::fill(rhs_x.begin(), rhs_x.end(), 0.0);
-        std::fill(rhs_y.begin(), rhs_y.end(), 0.0);
+    //     // rhs init
+    //     std::fill(rhs_x.begin(), rhs_x.end(), 0.0);
+    //     std::fill(rhs_y.begin(), rhs_y.end(), 0.0);
 
-        // (1+Ax/2)(1+Ay/2)u_n
-        // y ---------
-        for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                idx_jm = (j-1) * nx1 + i;
-                idx_jp = (j+1) * nx1 + i;
-                dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
+    //     // (1+Ax/2)(1+Ay/2)u_n
+    //     // y ---------
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             idx_jm = (j-1) * nx1 + i;
+    //             idx_jp = (j+1) * nx1 + i;
+    //             dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
 
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
+    //             coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
+    //             coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -     (2.0) * sub.theta_y_right_index[j] );
+    //             coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] + (5.0/3.0) * sub.theta_y_right_index[j] );
 
-                rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
-            }
-        }
+    //             rhs_y[idx] += (coef_y_c*theta[idx_jp] + (1+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
+    //         }
+    //     }
 
-        sub.ghostcellUpdate(rhs_y.data(), cx, cy, params);
+    //     sub.ghostcellUpdate(rhs_y.data(), cx, cy, params);
         
-        // x ---------
-        for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                idx_im = j * nx1 + (i-1);
-                idx_ip = j * nx1 + (i+1);
-                dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
+    //     // x ---------
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             idx_im = j * nx1 + (i-1);
+    //             idx_ip = j * nx1 + (i+1);
+    //             dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
                 
-                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
-                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
-                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
+    //             coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+    //             coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+    //             coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
 
-                rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
+    //             rhs_x[idx] += (coef_x_c*rhs_y[idx_ip] + (1+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
                 
-                // source func 
-                rhs_x[idx] += (dt) * 2*Pi*Pi * (cos(Pi * sub.x_sub[i]) * cos(Pi * sub.y_sub[j]));
+    //             // source func (S = 2(2-x^2-y^2))
+    //             rhs_x[idx] += (dt) * 2.0 * (2.0 - sub.x_sub[i]*sub.x_sub[i] - sub.y_sub[j]*sub.y_sub[j]);
+    //         }
+    //     }
 
-            }
-        }
+    //     // cal -----------------  A system 만들기 ------------------------------------------------
 
-        // cal -----------------  A system 만들기 ------------------------------------------------
-
-        // x -------------------------------------------
-        for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
+    //     // x -------------------------------------------
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
                 
-                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_right_index[i] ) * ( 1.0 - sub.theta_x_left_index[i] );
-                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -   (2.0) * sub.theta_x_right_index[i] );
-                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] ) * ( 1.0 - sub.theta_x_right_index[i] );
+    //             coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_right_index[i] ) * ( 1.0 - sub.theta_x_left_index[i] );
+    //             coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -   (2.0) * sub.theta_x_right_index[i] );
+    //             coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] ) * ( 1.0 - sub.theta_x_right_index[i] );
 
-                Ax[i-1] = -coef_x_a;
-                Bx[i-1] = 1-coef_x_b;
-                Cx[i-1] = -coef_x_c;
-                Dx[i-1] = rhs_x[idx];
-            }
-            tdma_x.PaScaL_TDMA_single_solve(px_single, Ax, Bx, Cx, Dx, nx1-2);
-            // Return the solution to the r.h.s. line-by-line.
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                theta_half[idx] = Dx[i-1];
-            }
-        }
+    //             Ax[j-1][i-1] = -coef_x_a;
+    //             Bx[j-1][i-1] = 1-coef_x_b;
+    //             Cx[j-1][i-1] = -coef_x_c;
+    //             Dx[j-1][i-1] = rhs_x[idx];
+    //         }
+    //     }
+    //     tdma_x.PaScaL_TDMA_many_solve(px_many, Ax, Bx, Cx, Dx, ny1-2, nx1-2);
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             theta_half[idx] = Dx[j-1][i-1];   // 지금은 일단 중간에 다른 곳으로 옮겨서 진행하고 있는데 속도를 위해서는 그냥 바로 solve 할 때 사용하는게 좋음 !!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //         }
+    //     }
 
-        // y -------------------------------------------
+    //     // y -------------------------------------------
+    //     for (i=1; i<nx1-1; ++i) {
+    //         for (j=1; j<ny1-1; ++j) {
+    //             idx = j * nx1 + i;
+    //             dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
+                
+    //             coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_right_index[j] ) * ( 1.0 - sub.theta_y_left_index[j] );
+    //             coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -   (2.0) * sub.theta_y_right_index[j] );
+    //             coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] ) * ( 1.0 - sub.theta_y_right_index[j] );
+
+    //             Ay[i-1][j-1] = -coef_y_a;
+    //             By[i-1][j-1] = 1-coef_y_b;
+    //             Cy[i-1][j-1] = -coef_y_c;
+    //             Dy[i-1][j-1] = theta_half[idx];
+    //         }          
+    //     }
+    //     tdma_y.PaScaL_TDMA_many_solve(py_many, Ay, By, Cy, Dy, nx1-2, ny1-2);
+    //     for (i=1; i<nx1-1; ++i) {
+    //         for (j=1; j<ny1-1; ++j) {
+    //             idx = j * nx1 + i;
+    //             theta[idx] = Dy[i-1][j-1];   // 지금은 일단 중간에 다른 곳으로 옮겨서 진행하고 있는데 속도를 위해서는 그냥 바로 solve 할 때 사용하는게 좋음 !!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //         }
+    //     }
+
+    //     // Update ghostcells from the solutions.
+    //     sub.ghostcellUpdate(theta, cx, cy, params);
+
+    //     // break point ----------------------
+    //     error = 0;
+    //     for (j=1; j<ny1-1; ++j) {
+    //         for (i=1; i<nx1-1; ++i) {
+    //             idx = j * nx1 + i;
+    //             error += (theta_old[idx]-theta[idx])*(theta_old[idx]-theta[idx]);
+    //         }
+    //     }
+    //     error  = sqrt ( error / ( (ny1-2)*(nx1-2) ) );
+
+    //     MPI_Allreduce(&error, &global_error, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    //     if (myrank==0 && t_step%check_num == 0) {
+    //         std::cout << "Step = " << t_step << "| global_error = " << global_error << std::endl;
+    //     }
+
+    //     if (global_error < tol) {
+    //         std::cout << "Converge in " << t_step << "step" << std::endl;
+    //         break;
+    //     }
+   
+    // }   // Time step end------------------------
+    // auto end = std::chrono::steady_clock::now();
+    // auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    // if (myrank==0) {
+    //     std::cout << "elapsed time: " << elapsed_ms << " ms\n";
+    // }
+
+    // tdma_x.PaScaL_TDMA_plan_many_destroy(px_many, px_many.nprocs);
+    // tdma_y.PaScaL_TDMA_plan_many_destroy(py_many, py_many.nprocs);
+
+    // // save results
+    
+    // for (int j = 0; j < ny1; ++j) {
+    //     for (int i = 0; i < nx1; ++i) {
+    //         theta_vec[j*nx1 + i] = theta[j*nx1 + i];
+    //     }
+    // }
+    // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 15);
+
+    // ---------------tdma_single ---- debug ------------------------------------------------
+
+    std::vector<double> rhs(nx1 * ny1, 0.0);
+    for (j=1; j<ny1-1; ++j) {
         for (i=1; i<nx1-1; ++i) {
-            for (j=1; j<ny1-1; ++j) {
-                idx = j * nx1 + i;
-                dydy = (sub.dmy_sub[j]*sub.dmy_sub[j]);
-                
-                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 );
-                coef_y_b = (dt / 2.0 / dydy) * (-2.0 );
-                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 );
+            idx = j * nx1 + i;
+            if (cx.myrank==0 && i==1) {
+                rhs[idx] = 5;
+            } else if (cx.myrank==1 && i==nx1-2) {
+                rhs[idx] = 5;
+            } else {
 
-                Ay[j-1] = -coef_y_a;
-                By[j-1] = 1-coef_y_b;
-                Cy[j-1] = -coef_y_c;
-                Dy[j-1] = theta_half[idx];
-            }
-            tdma_y.PaScaL_TDMA_single_solve_cycle(py_single, Ay, By, Cy, Dy, ny1-2);
-            // Return the solution to the theta. line-by-line.
-            for (j=1; j<ny1-1; ++j) {
-                idx = j * nx1 + i;
-                theta[idx] = Dy[j-1];
-            }            
-        }
-
-        // Update ghostcells from the solutions.
-        sub.ghostcellUpdate(theta, cx, cy, params);
-
-        // break point ----------------------
-        error = 0;
-        for (j=1; j<ny1-1; ++j) {
-            for (i=1; i<nx1-1; ++i) {
-                idx = j * nx1 + i;
-                error += (theta_old[idx]-theta[idx])*(theta_old[idx]-theta[idx]);
+                rhs[idx] = 6;
             }
         }
-        error  = sqrt ( error / ( (ny1-2)*(nx1-2) ) );
+    }
+    
+    for (j=1; j<ny1-1; ++j) {
+        for (i=1; i<nx1-1; ++i) {
+            idx = j * nx1 + i;
 
-        MPI_Allreduce(&error, &global_error, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-        if (myrank==0 && t_step%check_num == 0) {
-            std::cout << "Step = " << t_step << "| global_error = " << global_error << std::endl;
+            Ax[j-1][i-1] = 1;
+            Bx[j-1][i-1] = 4;
+            Cx[j-1][i-1] = 1;
+            Dx[j-1][i-1] = rhs[idx];
         }
+    }
+    
+    tdma_x.PaScaL_TDMA_many_solve(px_many, Ax, Bx, Cx, Dx, ny1-2, nx1-2);
 
-        if (global_error < tol) {
-            std::cout << "Converge in " << dt*t_step << "step" << std::endl;
-            break;
+    for (j=1; j<ny1-1; ++j) {
+        for (i=1; i<nx1-1; ++i) {
+            idx = j * nx1 + i;
+            theta[idx] = Dx[j-1][i-1];
         }
-    }   // Time step end------------------------
-    auto end = std::chrono::steady_clock::now();
-    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    if (myrank==0) {
-        std::cout << "elapsed time: " << elapsed_ms << " ms\n";
     }
 
-    tdma_x.PaScaL_TDMA_plan_single_destroy(px_single);
-    tdma_y.PaScaL_TDMA_plan_single_destroy(py_single);
-
-    // save results
-    
     for (int j = 0; j < ny1; ++j) {
         for (int i = 0; i < nx1; ++i) {
             theta_vec[j*nx1 + i] = theta[j*nx1 + i];
         }
     }
-    save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 15);
+    save_rhs_to_csv(theta_vec, nx1, ny1, "results", "theta" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv", 13);
+
 
 
     // ---------------tdma_cycle_single ---- debug ------------------------------------------------

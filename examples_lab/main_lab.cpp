@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     // x, y, z
     topo.init(
       { params.np_dim[0], params.np_dim[1] },
-      { false, true }
+      { false, false }
     );
 
     topo.make();
