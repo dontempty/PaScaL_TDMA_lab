@@ -12,7 +12,7 @@ class solve_theta {
 public:
 
     // rankx, npx 등 필요한 파라미터를 인자로 받아야 합니다
-    void solve_theta_plan_single(double* theta);
+    void solve_theta_plan_single(std::vector<double>& theta);
                                  
 };
 

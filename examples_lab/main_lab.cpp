@@ -4,7 +4,6 @@
 #include "mpi_topology.hpp"   // topo 생성
 #include "mpi_subdomain.hpp"  // MPISubdomain sub; 그냥 extern 함
 #include "solve_theta.hpp"
-// #include "save.hpp"
 
 #include <iostream>
 #include <array>
@@ -41,22 +40,9 @@ int main(int argc, char** argv) {
     sub.makeGhostcellDDType();
 
     sub.mesh(params, rankx, ranky, npx, npy);
-    // std::cout << "myrank: " << myrank << "|"
-    //           << "Rank XY = " << rankx << ranky << "|";
-    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
-    //     std::cout << sub.y_sub[i] << " ";
-    // }
-    // std::cout << "\n";
 
     // 7) x, y-방향 경계 인덱스 설정
     sub.indices(params, rankx, npx, ranky, npy);
-    // std::cout << "myrank: " << myrank << "|"
-    //           << "Rank XY = " << rankx << ranky << "|"
-    //           << "n_sub (xy) = " << sub.nx_sub << sub.ny_sub << "|";
-    // for (int i=0; i<(sub.ny_sub + 1); ++i) {
-    //     std::cout << sub.theta_y_left_index[i] << " ";
-    // }
-    // std::cout << "\n";
 
     // 8) theta 필드 (subdomain 크기에 맞춘 flat 배열) 준비
     std::vector<double> theta((sub.ny_sub + 1) * (sub.nx_sub + 1), 0.0);
@@ -68,37 +54,13 @@ int main(int argc, char** argv) {
 
     // 10) ghostcell 교환
     sub.ghostcellUpdate(theta.data(), cx, cy, params);
-    // int nx1, ny1;
-    // nx1 = sub.nx_sub + 1; ny1 = sub.ny_sub + 1;
-    // std::vector<double> theta_vec(nx1 * ny1);
-    // for (int j = 0; j < ny1; ++j) {
-    //     for (int i = 0; i < nx1; ++i) {
-    //         theta_vec[j*nx1 + i] = theta[j*nx1 + i];
-    //     }
-    // }
-    // save_rhs_to_csv(theta_vec, nx1, ny1, "results", "rhs_" + std::to_string(cy.myrank) + std::to_string(cx.myrank) +".csv");
-
-
-    // std::cout << "myrank: " << myrank << "|"
-    //           << "Rank XY = " << rankx << ranky << "|"
-    //           << "n_sub = " << sub.ny_sub << "," <<sub.nx_sub << "|";
-    // for (int i=0; i<(sub.ny_sub + 1) * (sub.nx_sub + 1); ++i) {
-    //     std::cout << theta[i] << " ";
-    // }
-    // std::cout << "\n";
 
     // 11) bdy값 저장하기
     sub.boundary(theta.data(), params, rankx, npx, ranky, npy);
-    // std::cout << "myrank: " << myrank << "|"
-    //           << "Rank XY = " << rankx << ranky << "|";
-    // for (int i=0; i<(sub.nx_sub + 1); ++i) {
-    //     std::cout << sub.theta_y_right_sub[i] << " ";
-    // }
-    
 
     // 12) 솔버 호출해서 실행하기
     solve_theta solver;
-    solver.solve_theta_plan_single(theta.data());
+    solver.solve_theta_plan_single(theta);
     
     sub.clean();
     topo.clean();
