@@ -239,27 +239,15 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
 
     // 2d array (ns_rd, nr_rd) or (ns_rt, nr_rt)
     // 여기서는 init이 없기 때문인지 resize를 해주는게 더 빠름. (re declare랑 비교했을 때)
-    plan.A_rd.resize(ns_rd);
-    plan.B_rd.resize(ns_rd);
-    plan.C_rd.resize(ns_rd);
-    plan.D_rd.resize(ns_rd);
-    for (int i = 0; i < ns_rd; ++i) {
-        plan.A_rd[i].resize(nr_rd);
-        plan.B_rd[i].resize(nr_rd);
-        plan.C_rd[i].resize(nr_rd);
-        plan.D_rd[i].resize(nr_rd);
-    }
+    plan.A_rd.resize(ns_rd * nr_rd);
+    plan.B_rd.resize(ns_rd * nr_rd);
+    plan.C_rd.resize(ns_rd * nr_rd);
+    plan.D_rd.resize(ns_rd * nr_rd);
 
-    plan.A_rt.resize(ns_rt);
-    plan.B_rt.resize(ns_rt);
-    plan.C_rt.resize(ns_rt);
-    plan.D_rt.resize(ns_rt);
-    for (int i = 0; i < ns_rt; ++i) {
-        plan.A_rt[i].resize(nr_rt);
-        plan.B_rt[i].resize(nr_rt);
-        plan.C_rt[i].resize(nr_rt);
-        plan.D_rt[i].resize(nr_rt);
-    }
+    plan.A_rt.resize(ns_rt * nr_rt);
+    plan.B_rt.resize(ns_rt * nr_rt);
+    plan.C_rt.resize(ns_rt * nr_rt);
+    plan.D_rt.resize(ns_rt * nr_rt);
 
     // Building the DDTs.
     plan.ddtype_Fs.resize(nprocs), plan.ddtype_Bs.resize(nprocs);
@@ -271,11 +259,22 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
         subsize[0] = ns_rt_array[i];
         subsize[1] = nr_rd;
         start[0] = sum;
+        sum += ns_rt_array[i];
         start[1] = 0;
         MPI_Type_create_subarray(2, bigsize.data(), subsize.data(), start.data(),
                                         MPI_ORDER_C, MPI_DOUBLE,
                                         &plan.ddtype_Fs[i]);
         MPI_Type_commit(&plan.ddtype_Fs[i]);
+
+        // int rank;
+        // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        // if (rank == 1) {
+        //     std::cout << "=== Rank 0 | DDT_Fs[" << i << "] ===\n";
+        //     std::cout << "  bigsize  = [" << bigsize[0] << ", " << bigsize[1] << "]\n";
+        //     std::cout << "  subsize  = [" << subsize[0] << ", " << subsize[1] << "]\n";
+        //     std::cout << "  start    = [" << start[0] << ", " << start[1] << "]\n";
+        //     std::cout << "  sum      = " << sum << "\n";
+        // }
         
         // DDT for receiving coefficients for the transposed systems of reduction using MPI_Ialltoallw communication.
         bigsize[0] = ns_rt;
@@ -301,7 +300,7 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_create(ptdma_plan_many& plan, int n_sys,
     // Deallocate local array.
     if (!ns_rt_array.empty()) {
         ns_rt_array.clear();         // 내용 제거
-        // ns_rt_array.shrink_to_fit(); // capacity까지 제거
+        ns_rt_array.shrink_to_fit(); // capacity까지 제거
     }
 }
 
@@ -313,17 +312,17 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nproc
     }
 
     plan.ddtype_Fs.shrink_to_fit(); plan.ddtype_Fs.shrink_to_fit();
-    plan. count_send.shrink_to_fit(); plan.displ_send.shrink_to_fit();
+    plan.count_send.shrink_to_fit(); plan.displ_send.shrink_to_fit();
     plan.count_recv.shrink_to_fit(); plan.displ_recv.shrink_to_fit();
     plan.A_rd.shrink_to_fit(); plan.B_rd.shrink_to_fit(); plan.C_rd.shrink_to_fit(); plan.D_rd.shrink_to_fit();
     plan.A_rt.shrink_to_fit(); plan.B_rt.shrink_to_fit(); plan.C_rt.shrink_to_fit(); plan.D_rt.shrink_to_fit();
 }
 
 void PaScaL_TDMA::PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
-                                std::vector<std::vector<double>>& A, 
-                                std::vector<std::vector<double>>& B, 
-                                std::vector<std::vector<double>>& C, 
-                                std::vector<std::vector<double>>& D,
+                                std::vector<double>& A, 
+                                std::vector<double>& B, 
+                                std::vector<double>& C, 
+                                std::vector<double>& D,
                                 int n_sys, int n_row) {
 
     // Temporary variables for computation and parameters for MPI functions.
@@ -332,137 +331,195 @@ void PaScaL_TDMA::PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
     double r;
     int idx;
 
-    for (i = 0; i < n_sys; ++i) {
-        A[i][0] /= B[i][0];
-        D[i][0] /= B[i][0];
-        C[i][0] /= B[i][0];
+    for (j = 0; j < n_sys; ++j) {
+        idx = j * n_row + 0;
+        A[idx] /= B[idx];
+        D[idx] /= B[idx];
+        C[idx] /= B[idx];
 
-        A[i][1] /= B[i][1];
-        D[i][1] /= B[i][1];
-        C[i][1] /= B[i][1];
+        idx = j * n_row + 1;
+        A[idx] /= B[idx];
+        D[idx] /= B[idx];
+        C[idx] /= B[idx];
     }
 
-    for (j = 2; j < n_row; ++j) {
-        for (i = 0; i < n_sys; ++i) {
-            r = 1.0 / (B[i][j] - A[i][j] * C[i][j - 1]);
-            D[i][j] = r * (D[i][j] - A[i][j] * D[i][j - 1]);
-            C[i][j] = r * C[i][j];
-            A[i][j] = -r * A[i][j] * A[i][j - 1];
+    for (j = 0; j < n_sys; ++j) {
+        for (i = 2; i < n_row; ++i) {
+            idx = j * n_row + i;
+            r = 1.0 / (B[idx] - A[idx]*C[idx - 1]);
+            D[idx] = r * (D[idx] - A[idx]*D[idx - 1]);
+            C[idx] = r * C[idx];
+            A[idx] = -r * A[idx] * A[idx - 1];
         }
     }
 
-    for (j = n_row - 3; j >= 1; --j) {
-        for (i = 0; i < n_sys; ++i) {
-            D[i][j] -= C[i][j] * D[i][j + 1];
-            A[i][j] -= C[i][j] * A[i][j + 1];
-            C[i][j] = -C[i][j] * C[i][j + 1];
+    for (j = 0; j < n_sys; ++j) {
+        for (i = n_row - 3; i >= 1; --i) {
+            idx = j * n_row + i;
+
+            D[idx] -= C[idx] * D[idx + 1];
+            A[idx] -= C[idx] * A[idx + 1];
+            C[idx] = -C[idx] * C[idx + 1];
         }
     }
 
-    for (i = 0; i < n_sys; ++i) {
-        r = 1.0 / (1.0 - A[i][1] * C[i][0]);
-        D[i][0] = r * (D[i][0] - C[i][0] * D[i][1]);
-        A[i][0] *= r;
-        C[i][0] = -r * C[i][0] * C[i][1];
+    for (j = 0; j < n_sys; ++j) {
+        idx = j*n_row + 0;
 
-        plan.A_rd[i][0] = A[i][0];
-        plan.A_rd[i][1] = A[i][n_row - 1];
-        plan.B_rd[i][0] = 1.0;
-        plan.B_rd[i][1] = 1.0;
-        plan.C_rd[i][0] = C[i][0];
-        plan.C_rd[i][1] = C[i][n_row - 1];
-        plan.D_rd[i][0] = D[i][0];
-        plan.D_rd[i][1] = D[i][n_row - 1];
-    }
+        r = 1.0 / (1.0 - A[idx + 1] * C[idx]);
+        D[idx] = r * (D[idx] - C[idx] * D[idx + 1]);
+        A[idx] *= r;
+        C[idx] = -r * C[idx] * C[idx + 1];
 
-    std::vector<double> flat_A_rd(n_sys * 2);
-    std::vector<double> flat_B_rd(n_sys * 2);
-    std::vector<double> flat_C_rd(n_sys * 2);
-    std::vector<double> flat_D_rd(n_sys * 2);
-    std::vector<double> flat_A_rt(plan.n_sys_rt * plan.n_row_rt);
-    std::vector<double> flat_B_rt(plan.n_sys_rt * plan.n_row_rt);
-    std::vector<double> flat_C_rt(plan.n_sys_rt * plan.n_row_rt);
-    std::vector<double> flat_D_rt(plan.n_sys_rt * plan.n_row_rt);
-
-    for (int i = 0; i < n_sys; ++i) {
-        flat_A_rd[i * 2 + 0] = plan.A_rd[i][0];
-        flat_A_rd[i * 2 + 1] = plan.A_rd[i][1];
-
-        flat_B_rd[i * 2 + 0] = plan.B_rd[i][0];
-        flat_B_rd[i * 2 + 1] = plan.B_rd[i][1];
-
-        flat_C_rd[i * 2 + 0] = plan.C_rd[i][0];
-        flat_C_rd[i * 2 + 1] = plan.C_rd[i][1];
-
-        flat_D_rd[i * 2 + 0] = plan.D_rd[i][0];
-        flat_D_rd[i * 2 + 1] = plan.D_rd[i][1];
+        plan.A_rd[j * 2 + 0] = A[idx];
+        plan.A_rd[j * 2 + 1] = A[idx + n_row-1];
+        plan.B_rd[j * 2 + 0] = 1.0;
+        plan.B_rd[j * 2 + 1] = 1.0;
+        plan.C_rd[j * 2 + 0] = C[idx];
+        plan.C_rd[j * 2 + 1] = C[idx + n_row-1];
+        plan.D_rd[j * 2 + 0] = D[idx];
+        plan.D_rd[j * 2 + 1] = D[idx + n_row-1];
     }
     
-    MPI_Ialltoallw(flat_A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    flat_A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+    MPI_Ialltoallw(plan.A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
                     plan.ptdma_world, &request[0]);
-    MPI_Ialltoallw(flat_B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    flat_B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+    MPI_Ialltoallw(plan.B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
                     plan.ptdma_world, &request[1]);
-    MPI_Ialltoallw(flat_C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    flat_C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+    MPI_Ialltoallw(plan.C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
                     plan.ptdma_world, &request[2]);     
-    MPI_Ialltoallw(flat_D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    flat_D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+    MPI_Ialltoallw(plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
                     plan.ptdma_world, &request[3]);
    
     MPI_Waitall(4, request.data(), MPI_STATUSES_IGNORE);
 
-    // 각 랭크에서 통신 직후 확인용 출력
-    // int myrank;
-    // MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    // std::cout << "=== Rank " << myrank << " | flat_D_rt ===\n";
-    // for (int i = 0; i < plan.n_sys_rt; ++i) {
-    //     std::cout << "  sys " << i << ": \n";
-    //     for (int j = 0; j < plan.n_row_rt; ++j) {
-    //         std::cout << flat_D_rt[i * plan.n_row_rt + j] << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-
-    for (int i=0; i<plan.n_sys_rt; ++i) {
-        for (int j=0; j<plan.n_row_rt; ++j) {
-            plan.A_rt[i][j] = flat_A_rt[i * plan.n_row_rt + j];
-            plan.B_rt[i][j] = flat_B_rt[i * plan.n_row_rt + j];
-            plan.C_rt[i][j] = flat_C_rt[i * plan.n_row_rt + j];
-            plan.D_rt[i][j] = flat_D_rt[i * plan.n_row_rt + j];
-        }
-    }
-
     tdma_many(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_sys_rt, plan.n_row_rt);
-
-    for (int i=0; i<plan.n_sys_rt; ++i) {
-        for (int j=0; j<plan.n_row_rt; ++j) {
-            flat_D_rt[i * plan.n_row_rt + j] = plan.D_rt[i][j];
-        }
-    }
 
     // 일단 이렇게 하면 작동은 잘 되는데 왜 잘 작동하는지는 모르겠다
     // D_rt -> D_rd의 경우 보내는 입장이 바뀌었기 때문에 ddtype을 (ddtype_Bs, ddtype_F) 이렇게 사용해야 하는줄 알았는데 반대로 사용해야 잘 작동함.
-    MPI_Ialltoallw(flat_D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Fs.data(),
-               flat_D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Bs.data(),
-               plan.ptdma_world, &request[0]);
+    MPI_Ialltoallw(plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                   plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                   plan.ptdma_world, &request[0]);        
 
     MPI_Waitall(1, request.data(), MPI_STATUSES_IGNORE);
 
-    for (int i = 0; i < n_sys; ++i) {
-        plan.D_rd[i][0] = flat_D_rd[i * 2 + 0];
-        plan.D_rd[i][1] = flat_D_rd[i * 2 + 1];
+    for (j = 0; j < n_sys; ++j) {
+        idx = j*n_row + 0;
+
+        D[idx] = plan.D_rd[j*2 + 0];
+        D[idx + n_row-1] = plan.D_rd[j*2 + 1];
     }
 
-    for (i = 0; i < n_sys; ++i) {
-        D[i][0] = plan.D_rd[i][0];
-        D[i][n_row - 1] = plan.D_rd[i][1];
+    for (j = 0; j < n_sys; ++j) {
+        for (i = 1; i < n_row-1; ++i) {
+            idx = j*n_row + 0;
+            D[idx + i] -= A[idx + i] * D[idx] + C[idx + i] * D[idx + n_row-1];
+        }
+    }
+}
+
+void PaScaL_TDMA::PaScaL_TDMA_many_solve_cycle(ptdma_plan_many& plan,
+                                std::vector<double>& A, 
+                                std::vector<double>& B, 
+                                std::vector<double>& C, 
+                                std::vector<double>& D,
+                                int n_sys, int n_row) {
+    
+        // Temporary variables for computation and parameters for MPI functions.
+    int i, j;
+    std::vector<MPI_Request> request(4);
+    double r;
+    int idx;
+
+    for (j = 0; j < n_sys; ++j) {
+        idx = j * n_row + 0;
+        A[idx] /= B[idx];
+        D[idx] /= B[idx];
+        C[idx] /= B[idx];
+
+        idx = j * n_row + 1;
+        A[idx] /= B[idx];
+        D[idx] /= B[idx];
+        C[idx] /= B[idx];
     }
 
-    for (j = 1; j < n_row - 1; ++j) {
-        for (i = 0; i < n_sys; ++i) {
-            D[i][j] -= A[i][j] * D[i][0] + C[i][j] * D[i][n_row - 1];
+    for (j = 0; j < n_sys; ++j) {
+        for (i = 2; i < n_row; ++i) {
+            idx = j * n_row + i;
+            r = 1.0 / (B[idx] - A[idx]*C[idx - 1]);
+            D[idx] = r * (D[idx] - A[idx]*D[idx - 1]);
+            C[idx] = r * C[idx];
+            A[idx] = -r * A[idx] * A[idx - 1];
+        }
+    }
+
+    for (j = 0; j < n_sys; ++j) {
+        for (i = n_row - 3; i >= 1; --i) {
+            idx = j * n_row + i;
+
+            D[idx] -= C[idx] * D[idx + 1];
+            A[idx] -= C[idx] * A[idx + 1];
+            C[idx] = -C[idx] * C[idx + 1];
+        }
+    }
+
+    for (j = 0; j < n_sys; ++j) {
+        idx = j*n_row + 0;
+
+        r = 1.0 / (1.0 - A[idx + 1] * C[idx]);
+        D[idx] = r * (D[idx] - C[idx] * D[idx + 1]);
+        A[idx] *= r;
+        C[idx] = -r * C[idx] * C[idx + 1];
+
+        plan.A_rd[j * 2 + 0] = A[idx];
+        plan.A_rd[j * 2 + 1] = A[idx + n_row-1];
+        plan.B_rd[j * 2 + 0] = 1.0;
+        plan.B_rd[j * 2 + 1] = 1.0;
+        plan.C_rd[j * 2 + 0] = C[idx];
+        plan.C_rd[j * 2 + 1] = C[idx + n_row-1];
+        plan.D_rd[j * 2 + 0] = D[idx];
+        plan.D_rd[j * 2 + 1] = D[idx + n_row-1];
+    }
+    
+    MPI_Ialltoallw(plan.A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[0]);
+    MPI_Ialltoallw(plan.B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[1]);
+    MPI_Ialltoallw(plan.C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[2]);     
+    MPI_Ialltoallw(plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.ptdma_world, &request[3]);
+   
+    MPI_Waitall(4, request.data(), MPI_STATUSES_IGNORE);
+
+    tdma_cycl_many(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_sys_rt, plan.n_row_rt);
+
+    // 일단 이렇게 하면 작동은 잘 되는데 왜 잘 작동하는지는 모르겠다
+    // D_rt -> D_rd의 경우 보내는 입장이 바뀌었기 때문에 ddtype을 (ddtype_Bs, ddtype_F) 이렇게 사용해야 하는줄 알았는데 반대로 사용해야 잘 작동함.
+    MPI_Ialltoallw(plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                   plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                   plan.ptdma_world, &request[0]);        
+
+    MPI_Waitall(1, request.data(), MPI_STATUSES_IGNORE);
+
+    for (j = 0; j < n_sys; ++j) {
+        idx = j*n_row + 0;
+
+        D[idx] = plan.D_rd[j*2 + 0];
+        D[idx + n_row-1] = plan.D_rd[j*2 + 1];
+    }
+
+    for (j = 0; j < n_sys; ++j) {
+        for (i = 1; i < n_row-1; ++i) {
+            idx = j*n_row + 0;
+            D[idx + i] -= A[idx + i] * D[idx] + C[idx + i] * D[idx + n_row-1];
         }
     }
 }

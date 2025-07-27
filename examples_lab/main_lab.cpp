@@ -4,6 +4,7 @@
 #include "mpi_topology.hpp"   // topo 생성
 #include "mpi_subdomain.hpp"  // MPISubdomain sub; 그냥 extern 함
 #include "solve_theta.hpp"
+#include "save.hpp"
 
 #include <iostream>
 #include <array>
@@ -21,7 +22,7 @@ int main(int argc, char** argv) {
     // x, y, z
     topo.init(
       { params.np_dim[0], params.np_dim[1] },
-      { false, false }
+      { false, true }
     );
 
     topo.make();
@@ -48,15 +49,14 @@ int main(int argc, char** argv) {
     std::vector<double> theta((sub.ny_sub + 1) * (sub.nx_sub + 1), 0.0);
 
     // 9) 내부 값 초기화
-    // initialization(theta.data(), params, ranky, npy);
-    sub.initialization(theta.data(), params);
+    sub.initialization(theta, params);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // 10) ghostcell 교환
-    sub.ghostcellUpdate(theta.data(), cx, cy, params);
+    sub.ghostcellUpdate(theta, cx, cy, params);
 
     // 11) bdy값 저장하기
-    sub.boundary(theta.data(), params, rankx, npx, ranky, npy);
+    sub.boundary(theta, params, rankx, npx, ranky, npy);
 
     // 12) 솔버 호출해서 실행하기
     solve_theta solver;

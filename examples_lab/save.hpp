@@ -9,7 +9,7 @@
 #include <iostream>
 #include <iomanip>      // std::setprecision, std::fixed
 
-void save_rhs_to_csv(const std::vector<double>& rhs,
+inline void save_rhs_to_csv(const std::vector<double>& rhs,
                      int nx, int ny,
                      const std::string& folder,
                      const std::string& filename,

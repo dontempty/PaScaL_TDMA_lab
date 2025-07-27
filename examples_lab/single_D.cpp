@@ -36,29 +36,32 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
     c[1] = c[1]/b[1];
 
     for (i=2; i<=n1-1; ++i) {
-        rr = 1.0/(b[i]-a[i]*c[i-1]);
-        d[i] = rr*(d[i]-a[i]*d[i-1]);
-        e[i] = rr*(e[i]-a[i]*e[i-1]);
+        rr = 1.0 / (b[i] - a[i]*c[i-1]);
+        d[i] = rr*(d[i] - a[i]*d[i-1]);
+        e[i] = rr*(e[i] - a[i]*e[i-1]);
         c[i] = rr*c[i];
     }
 
     for (i=n1-2; i>=1; --i) {
-        d[i] = d[i]-c[i]*d[i+1];
-        e[i] = e[i]-c[i]*e[i+1];
+        d[i] = d[i] - c[i]*d[i+1];
+        e[i] = e[i] - c[i]*e[i+1];
     }
 
-    d[0] = (d[0]-a[0]*d[n1-1]-c[0]*d[1])/(b[0]+a[0]*e[n1-1]+c[0]*e[1]);
+    d[0] = (d[0] - a[0]*d[n1-1] - c[0]*d[1])/(b[0] + a[0]*e[n1-1] + c[0]*e[1]);
 
     for (i=1; i<=n1-1; ++i) {
         d[i] = d[i] + d[0]*e[i];
     }
 }
 
+// compile = g++ -O2 -std=c++17 -static-libgcc -static-libstdc++ -o single_D.exe single_D.cpp
+// Run = ./single_D.exe 
 int main() {
+
     int i, j;
 
-    int Nx = 1024; 
-    int Ny = 1024;
+    int Nx = 2048; 
+    int Ny = 2048;
     int nx1 = Nx+2;
     int ny1 = Ny+2;
 
@@ -87,14 +90,14 @@ int main() {
         }
     }
 
-    std::vector<double> theta_x_left_index(nx1);
-    std::vector<double> theta_x_right_index(nx1);
-    std::vector<double> theta_y_left_index(ny1);
-    std::vector<double> theta_y_right_index(ny1);
+    std::vector<double> theta_x_left_index(nx1, 0.0);
+    std::vector<double> theta_x_right_index(nx1, 0.0);
+    std::vector<double> theta_y_left_index(ny1, 0.0);
+    std::vector<double> theta_y_right_index(ny1, 0.0);
     theta_x_left_index[1] = 1;
     theta_x_right_index[nx1-2] = 1;
     theta_y_left_index[1] = 1;
-    theta_y_right_index[nx1-2] = 1;
+    theta_y_right_index[ny1-2] = 1;
 
     std::vector<double> Axx((nx1-2)*(ny1-2)), Bxx((nx1-2)*(ny1-2)), Cxx((nx1-2)*(ny1-2)), Dxx((nx1-2)*(ny1-2));
     std::vector<double> Ax(nx1-2), Bx(nx1-2), Cx(nx1-2), Dx(nx1-2);
@@ -102,84 +105,173 @@ int main() {
     std::vector<double> Ayy((ny1-2)*(nx1-2)), Byy((ny1-2)*(nx1-2)), Cyy((ny1-2)*(nx1-2)), Dyy((ny1-2)*(nx1-2));
     std::vector<double> Ay(ny1-2), By(ny1-2), Cy(ny1-2), Dy(ny1-2);
 
-    std::vector<double> rhs(nx1 * ny1, 0.0);
+    std::vector<double> rhs_x(nx1 * ny1, 0.0);
+    std::vector<double> rhs_y(nx1 * ny1, 0.0);
     std::vector<double> theta_half(nx1 * ny1, 0.0);
     std::vector<double> theta(nx1 * ny1, 0.0);
-    std::vector<double> theta_vec(nx1 * ny1);
+    std::vector<double> theta_old(nx1 * ny1, 0.0);
     
-
     int idx;
-    int offset;
+    int idxx;
+    int idx_ip, idx_im;
+    int idx_jp, idx_jm;
     double dxdx, dydy;
     double coef_x_a, coef_x_b, coef_x_c;
     double coef_y_a, coef_y_b, coef_y_c;
     double Pi = 3.14159265358979323846;
 
-    // Calculating r.h.s -------------------------------------------------------------------
-    for (j=1; j<ny1-1; ++j) {
-        for (i=1; i<nx1-1; ++i) {
+    // theta Init
+    for (j=0; j<ny1; ++j) {
+        for (i=0; i<nx1; ++i) {
             idx = j * nx1 + i;
 
-            rhs[idx] = sin(Pi*X[i]) * sin(Pi*Y[j]);
+            theta[idx] = sin(Pi*X[i]) * sin(Pi*Y[j]) * exp(-2.0 * Pi*Pi * 0.0 ) + cos(Pi*X[i]) * cos(Pi*Y[j]);
         }
     }
-    // save_rhs_to_csv(rhs, nx1, ny1, "results", "rhs_single.csv", 17);
 
+    int max_iter = 100;
+    double dt = 0.01;
+    int time;
     auto start = std::chrono::steady_clock::now();
-    // Calculating A matrix ----------------------------------------------------------------
-    // x------------------------------------------
-    for (j=1; j<ny1-1; ++j) {
-        for (i=1; i<nx1-1; ++i) {
-            idx = j * nx1 + i;
-            dxdx = (dx*dx);
-            
-            coef_x_a = (1.0 / dxdx) * ( 1.0 + (1.0) * theta_x_right_index[i] ) * ( 1.0 - theta_x_left_index[i] );
-            coef_x_b = (1.0 / dxdx) * (-2.0 -     (1.0) * theta_x_left_index[i] -   (1.0) * theta_x_right_index[i] );
-            coef_x_c = (1.0 / dxdx) * ( 1.0 + (1.0) * theta_x_left_index[i] ) * ( 1.0 - theta_x_right_index[i] );
+    for (time=0; time<max_iter; ++time) {
 
-            Ax[i-1] = coef_x_a;
-            Bx[i-1] = coef_x_b;
-            Cx[i-1] = coef_x_c;
-            Dx[i-1] = rhs[idx];
+        // Calculating r.h.s -------------------------------------------------------------------
+        for (j=1; j<ny1-1; ++j) {
+            for (i=0; i<nx1; ++i) {
+                idx = j * nx1 + i;
+                idx_jm = (j-1) * nx1 + i;
+                idx_jp = (j+1) * nx1 + i;
+                dydy = (dy*dy);
+                
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * theta_y_left_index[j] + (1.0/3.0) * theta_y_right_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -     (2.0) * theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] + (5.0/3.0) * theta_y_right_index[j] );
+
+                rhs_y[idx] = (coef_y_c*theta[idx_jp] + (1.0+coef_y_b)*theta[idx] + coef_y_a*theta[idx_jm]);
+            }
         }
-        tdma_single(Ax, Bx, Cx, Dx, nx1-2);
-        // Return the solution to the r.h.s. line-by-line.
-        for (i=1; i<nx1-1; ++i) {
+
+        // save_rhs_to_csv(rhs_y, nx1, ny1, "results", "rhs_y_single" + std::to_string(time) + ".csv", 15);
+
+        for (j=1; j<ny1-1; ++j) {
+            for (i=1; i<nx1-1; ++i) {
+                idx = j * nx1 + i;
+                idx_im = j * nx1 + (i-1);
+                idx_ip = j * nx1 + (i+1);
+                dxdx = (dx*dx);
+                
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * theta_x_left_index[i] + (1.0/3.0) * theta_x_right_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * theta_x_left_index[i] -     (2.0) * theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * theta_x_left_index[i] + (5.0/3.0) * theta_x_right_index[i] );
+
+                rhs_x[idx] = (coef_x_c*rhs_y[idx_ip] + (1.0+coef_x_b)*rhs_y[idx] + coef_x_a*rhs_y[idx_im]);
+                
+                // source func
+                rhs_x[idx] += (dt) * ( 2.0 * Pi*Pi * cos(Pi*X[i]) * cos(Pi*Y[j]) );
+
+            }
+        }
+
+        // save_rhs_to_csv(rhs_x, nx1, ny1, "results", "rhs_x_single"+ std::to_string(time) +".csv", 15);
+                
+        // bdy
+        for (j=1; j<ny1-1; ++j) {
+
+            coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * theta_y_left_index[j] + (1.0/3.0) * theta_y_right_index[j] );
+            coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -     (2.0) * theta_y_right_index[j] );
+            coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] + (5.0/3.0) * theta_y_right_index[j] );
+            coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + 5.0/3.0 );
+            coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + 5.0/3.0 );
+
+            i = 0;
             idx = j * nx1 + i;
-            theta_half[idx] = Dx[i-1];
+            idx_jm = (j-1) * nx1 + i;
+            idx_jp = (j+1) * nx1 + i;
+            idxx = j * nx1 + 1;
+            rhs_x[idxx] += coef_x_a * (-coef_y_a*theta[idx_jm] + (1.0-coef_y_b)*theta[idx] - coef_y_c*theta[idx_jp]);
+
+            i = (nx1-1);
+            idx = j * nx1 + i;
+            idx_jm = (j-1) * nx1 + i;
+            idx_jp = (j+1) * nx1 + i;
+            idxx = j * nx1 + (nx1-2);
+            rhs_x[idxx] += coef_x_c * (-coef_y_a*theta[idx_jm] + (1.0-coef_y_b)*theta[idx] - coef_y_c*theta[idx_jp]);
         }
+
+        // Calculating A matrix ----------------------------------------------------------------
+        // x------------------------------------------
+        for (j=1; j<ny1-1; ++j) {
+            for (i=1; i<nx1-1; ++i) {
+                idx = j * nx1 + i;
+                dxdx = (dx*dx);
+
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * theta_x_left_index[i] + (1.0/3.0) * theta_x_right_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * theta_x_left_index[i] -     (2.0) * theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * theta_x_left_index[i] + (5.0/3.0) * theta_x_right_index[i] );
+
+                Ax[i-1] = -coef_x_a;
+                Bx[i-1] = (1.0-coef_x_b);
+                Cx[i-1] = -coef_x_c;
+                Dx[i-1] = rhs_x[idx];
+            }
+            tdma_single(Ax, Bx, Cx, Dx, nx1-2);
+            // Return the solution to the r.h.s. line-by-line.
+            for (i=1; i<nx1-1; ++i) {
+                idx = j * nx1 + i;
+                theta_half[idx] = Dx[i-1];
+            }
+        }
+
+        for (i=1; i<nx1-1; ++i) {
+            
+            coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + 5.0/3.0 );
+            coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + 5.0/3.0);
+
+            j = 1;
+            idx = (j) * nx1 + (i);
+            idx_jm = (j-1) * nx1 + (i);
+            theta_half[idx] += coef_y_a * theta[idx_jm];
+
+            j = ny1-2;
+            idx = (j) * nx1 + (i);
+            idx_jp = (j+1) * nx1 + (i);
+            theta_half[idx] += coef_y_c * theta[idx_jp];
+        }
+        
+        // y -------------------------------------------
+        for (i=1; i<nx1-1; ++i) {
+            for (j=1; j<ny1-1; ++j) {
+                idx = j * nx1 + i;
+                dydy = (dy*dy);
+
+                coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * theta_y_left_index[j] + (1.0/3.0) * theta_y_right_index[j] );
+                coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -     (2.0) * theta_y_right_index[j] );
+                coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] + (5.0/3.0) * theta_y_right_index[j] );
+
+                Ay[j-1] = -coef_y_a;
+                By[j-1] = (1.0-coef_y_b);
+                Cy[j-1] = -coef_y_c;
+                Dy[j-1] = theta_half[idx];
+            }
+            tdma_single(Ay, By, Cy, Dy, ny1-2);
+            // Return the solution to the r.h.s. line-by-line.
+            for (j=1; j<ny1-1; ++j) {
+                idx = j * nx1 + i;
+                theta[idx] = Dy[j-1];
+            } 
+        }
+
+        // save_rhs_to_csv(theta, nx1, ny1, "results", "theta_single"+ std::to_string(time) +".csv", 17);
+
     }
 
-    // save_rhs_to_csv(theta_half, nx1, ny1, "results", "rhs_single.csv", 17);
-    
-    // y -------------------------------------------
-    for (i=1; i<nx1-1; ++i) {
-        for (j=1; j<ny1-1; ++j) {
-            idx = j * ny1 + i;
-            dydy = (dy*dy);
-            
-            coef_y_a = (1.0 / dydy) * ( 1.0 + (1.0) * theta_y_right_index[j] ) * ( 1.0 - theta_y_left_index[j] );
-            coef_y_b = (1.0 / dydy) * (-2.0 -     (1.0) * theta_y_left_index[j] -   (1.0) * theta_y_right_index[j] );
-            coef_y_c = (1.0 / dydy) * ( 1.0 + (1.0) * theta_y_left_index[j] ) * ( 1.0 - theta_y_right_index[j] );
-
-            Ay[j-1] = coef_y_a;
-            By[j-1] = coef_y_b;
-            Cy[j-1] = coef_y_c;
-            Dy[j-1] = theta_half[idx];
-        }
-        tdma_single(Ay, By, Cy, Dy, ny1-2);
-        // Return the solution to the r.h.s. line-by-line.
-        for (j=1; j<ny1-1; ++j) {
-            idx = j * ny1 + i;
-            theta[idx] = Dy[j-1];
-        } 
-    }
     auto end = std::chrono::steady_clock::now();
-    auto elapsed_ms = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "elapsed time: " << elapsed_ms << " ms\n";
 
     // save results
-    save_rhs_to_csv(theta, nx1, ny1, "results", "rhs_single.csv", 17);
+    std::cout << "tN = " << dt * max_iter << std::endl;
+    save_rhs_to_csv(theta, nx1, ny1, "results", "theta_single.csv", 17);
 
     return 0;
 }

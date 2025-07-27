@@ -28,7 +28,7 @@ public:
     // Ghost-cell MPI derived types
     void makeGhostcellDDType();
     // Exchange ghost cells for a flat theta array
-    void ghostcellUpdate(double* theta,
+    void ghostcellUpdate(std::vector<double>& theta,
                          const CartComm1D& cx,
                          const CartComm1D& cy,
                          const GlobalParams& params);
@@ -44,16 +44,11 @@ public:
               int npx, int npy);
 
     // Initialize field in subdomain
-    void initialization(double* theta,
+    void initialization(std::vector<double>& theta,
                         const GlobalParams& params);
 
-    // Initialize field in subdomain -- debug
-    void initialization_debug(double* theta,
-                                  const GlobalParams& params,
-                                  int myrank);
-
     // Boundary extraction
-    void boundary(const double* theta,
+    void boundary(std::vector<double>& theta,
                   const GlobalParams& params,
                   int rankx, int npx,
                   int ranky, int npy);

@@ -69,7 +69,7 @@ void GlobalParams::load(const std::string& filename) {
     nxm = nx - 1; nym = ny - 1; // nzm = nz - 1;
     nxp = nx + 1; nyp = ny + 1; // nzp = nz + 1;
 
-    dtStart = 5.0e-3; tStart = 0.0;
+    dtStart = 0.01; tStart = 0.0;
     x0 = -1; xN = 1;
     y0 = -1; yN = 1;
     z0 = -1; zN = 1;

@@ -115,7 +115,7 @@ void MPISubdomain::makeGhostcellDDType() {
     MPI_Type_commit(&ddtype_recvfrom_N);
 }
 
-void MPISubdomain::ghostcellUpdate(double* theta,
+void MPISubdomain::ghostcellUpdate(std::vector<double>& theta,
                                    const CartComm1D& cx,
                                    const CartComm1D& cy,
                                    const GlobalParams& /*params*/) {
@@ -123,16 +123,16 @@ void MPISubdomain::ghostcellUpdate(double* theta,
     int r=0;
 
     // X
-    MPI_Isend(theta, 1, ddtype_sendto_E, cx.east_rank, 111, cx.comm, &reqs[r++]);
-    MPI_Irecv(theta, 1, ddtype_recvfrom_W, cx.west_rank, 111, cx.comm, &reqs[r++]);
-    MPI_Isend(theta, 1, ddtype_sendto_W, cx.west_rank, 222, cx.comm, &reqs[r++]);
-    MPI_Irecv(theta, 1, ddtype_recvfrom_E, cx.east_rank, 222, cx.comm, &reqs[r++]);
+    MPI_Isend(theta.data(), 1, ddtype_sendto_E, cx.east_rank, 111, cx.comm, &reqs[r++]);
+    MPI_Irecv(theta.data(), 1, ddtype_recvfrom_W, cx.west_rank, 111, cx.comm, &reqs[r++]);
+    MPI_Isend(theta.data(), 1, ddtype_sendto_W, cx.west_rank, 222, cx.comm, &reqs[r++]);
+    MPI_Irecv(theta.data(), 1, ddtype_recvfrom_E, cx.east_rank, 222, cx.comm, &reqs[r++]);
 
     // Y
-    MPI_Isend(theta, 1, ddtype_sendto_N, cy.east_rank, 333, cy.comm, &reqs[r++]);
-    MPI_Irecv(theta, 1, ddtype_recvfrom_S, cy.west_rank, 333, cy.comm, &reqs[r++]);
-    MPI_Isend(theta, 1, ddtype_sendto_S, cy.west_rank, 444, cy.comm, &reqs[r++]);
-    MPI_Irecv(theta, 1, ddtype_recvfrom_N, cy.east_rank, 444, cy.comm, &reqs[r++]);
+    MPI_Isend(theta.data(), 1, ddtype_sendto_N, cy.east_rank, 333, cy.comm, &reqs[r++]);
+    MPI_Irecv(theta.data(), 1, ddtype_recvfrom_S, cy.west_rank, 333, cy.comm, &reqs[r++]);
+    MPI_Isend(theta.data(), 1, ddtype_sendto_S, cy.west_rank, 444, cy.comm, &reqs[r++]);
+    MPI_Irecv(theta.data(), 1, ddtype_recvfrom_N, cy.east_rank, 444, cy.comm, &reqs[r++]);
 
     MPI_Waitall(r, reqs, MPI_STATUSES_IGNORE);
 }
@@ -189,39 +189,23 @@ void MPISubdomain::mesh(const GlobalParams& params,
     // boundary adjustments omitted
 }
 
-void MPISubdomain::initialization(double* theta,
+void MPISubdomain::initialization(std::vector<double>& theta,
                                   const GlobalParams& params) {
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     
-    for(int j=0; j<=ny_sub; ++j) {
-        for(int i=0; i<=nx_sub; ++i) {
+    for(int j=0; j<ny1; ++j) {
+        for(int i=0; i<nx1; ++i) {
             int idx =  j * nx1 + i;
 
-            // Dirichlet
-            theta[idx] = 0.0;
+            theta[idx] = sin(Pi*x_sub[i]) * sin(Pi*y_sub[j]) * exp(-2.0 * Pi*Pi * 0.0) + cos(Pi*x_sub[i]) * cos(Pi*y_sub[j]);
         }
     }
-
-    // Dirichlet이 0이 아닌 경우 따로 정확한 경계값을 init에서 넣어줘야함
-    
 }
 
-void MPISubdomain::initialization_debug(double* theta,
-                                  const GlobalParams& params,
-                                  int myrank) {
-    int nx1 = nx_sub + 1;
-    int ny1 = ny_sub + 1;
-    for(int j=0;j<=ny_sub;++j)
-        for(int i=0;i<=nx_sub;++i) {
-            int idx =  j * nx1 + i;
-            theta[idx] = myrank;
-        }
-    }
-
-void MPISubdomain::boundary(const double* theta,
+void MPISubdomain::boundary(std::vector<double>& theta,
                             const GlobalParams& params,
                             int rankx, int npx,
                             int ranky,int npy) {

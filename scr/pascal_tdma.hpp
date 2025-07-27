@@ -56,11 +56,11 @@ public:
         // Coefficient arrays after reduction, a: lower, b: diagonal, c: upper, d: rhs.
         // The orginal dimension (m:n) is reduced to (m:2)
         // singel 이였으면 m을 순차적으로 풀었지만 여기서는 한번에 모은다.
-        std::vector<std::vector<double>> A_rd, B_rd, C_rd, D_rd;
+        std::vector<double> A_rd, B_rd, C_rd, D_rd;
 
         // Coefficient arrays after reduction, a: lower, b: diagonal, c: upper, d: rhs.
         // The reduced dimension (m:2) changes to (m/np: 2*np) after transpose.
-        std::vector<std::vector<double>> A_rt, B_rt, C_rt, D_rt;
+        std::vector<double> A_rt, B_rt, C_rt, D_rt;
 
     };
 
@@ -69,6 +69,10 @@ public:
     void PaScaL_TDMA_plan_many_destroy(ptdma_plan_many& plan, int nprocs);
 
     void PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
-                                std::vector<std::vector<double>>& a, std::vector<std::vector<double>>& b, std::vector<std::vector<double>>& c, std::vector<std::vector<double>>& d,
+                                std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d,
                                 int n_sys, int n_row);
+
+    void PaScaL_TDMA_many_solve_cycle(ptdma_plan_many& plan,
+                                    std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d,
+                                    int n_sys, int n_row);
 };

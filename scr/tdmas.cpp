@@ -10,7 +10,7 @@ void tdma_single(std::vector<double>& a, std::vector<double>& b, std::vector<dou
     d[0] = d[0]/b[0];
     c[0] = c[0]/b[0];
 
-    for (i=1; i<=n1-1; ++i) {
+    for (i=1; i<n1; ++i) {
         r = 1.0/(b[i]-a[i]*c[i-1]);
         d[i] = r*(d[i]-a[i]*d[i-1]);
         c[i] = r*c[i];
@@ -25,6 +25,7 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
 
     int i;
     double rr;
+    // n1 = n_row
 
     std::vector<double> e(n1, 0.0);
     e[1] = -a[1];
@@ -46,7 +47,7 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
         e[i] = e[i]-c[i]*e[i+1];
     }
 
-    d[0] = (d[0]-a[0]*d[n1-1]-c[0]*d[1])/(b[0]+a[0]*e[n1-1]+c[0]*e[1]);
+    d[0] = (d[0] - a[0]*d[n1-1] - c[0]*d[1])/(b[0] + a[0]*e[n1-1] + c[0]*e[1]);
 
     for (i=1; i<=n1-1; ++i) {
         d[i] = d[i] + d[0]*e[i];
@@ -54,32 +55,110 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
 }
 
 void tdma_many(
-    std::vector<std::vector<double>> &a,
-    std::vector<std::vector<double>> &b,
-    std::vector<std::vector<double>> &c,
-    std::vector<std::vector<double>> &d,
+    std::vector<double> &a,
+    std::vector<double> &b,
+    std::vector<double> &c,
+    std::vector<double> &d,
     int n1, int n2) {
+    // n1: n_sys
+    // n2: n_row
         
     std::vector<double> r(n1);
+    int idx;
+    int i, j;
 
     // Forward elimination
-    for (int i = 0; i < n1; ++i) {
-        d[i][0] /= b[i][0];
-        c[i][0] /= b[i][0];
+    for (j = 0; j < n1; ++j) {
+        idx = j*n2 + 0;
+
+        d[idx] /= b[idx];
+        c[idx] /= b[idx];
     }
 
-    for (int j = 1; j < n2; ++j) {
-        for (int i = 0; i < n1; ++i) {
-            r[i] = 1.0 / (b[i][j] - a[i][j] * c[i][j - 1]);
-            d[i][j] = r[i] * (d[i][j] - a[i][j] * d[i][j - 1]);
-            c[i][j] = r[i] * c[i][j];
+    for (j = 0; j < n1; ++j) {
+        // r[j] = 1.0 / (b[idx] - a[idx] * c[idx - 1]);
+        for (i = 1; i < n2; ++i) {
+            idx = j*n2 + i;
+            double r = 1.0 / (b[idx] - a[idx] * c[idx - 1]);
+            d[idx] = r * (d[idx] - a[idx] * d[idx - 1]);
+            c[idx] = r * c[idx];
         }
     }
 
     // Back substitution
-    for (int j = n2 - 2; j >= 0; --j) {
-        for (int i = 0; i < n1; ++i) {
-            d[i][j] = d[i][j] - c[i][j] * d[i][j + 1];
+    for (j = 0; j < n1; ++j) {
+        for (i = n2-2; i >= 0; --i) {
+            idx = j*n2 + i;
+
+            d[idx] = d[idx] - c[idx] * d[idx + 1];
+        }
+    }
+}
+
+void tdma_cycl_many(
+    std::vector<double> &a,
+    std::vector<double> &b,
+    std::vector<double> &c,
+    std::vector<double> &d,
+    int n1, int n2) {
+    // n1: n_sys
+    // n2: n_row
+        
+    // std::vector<double> r(n2);
+    std::vector<double> e(n1*n2);
+    int idx;
+    int i, j;
+
+    for (j=0; j<n1; ++j) {
+        for (i=0; i<n2; ++i) {
+            idx = j*n2 +i;
+            e[idx] = 0;
+        }
+        idx = j*n2 + 1;
+        e[idx] = -a[idx];
+        
+        idx = j*n2 + (n2-1);
+        e[idx] = -c[idx];
+    }
+
+    for (j=0; j<n1; ++j) {
+        idx = j*n2 + 1;
+        d[idx] /= b[idx];
+        e[idx] /= b[idx];
+        c[idx] /= b[idx];
+    }
+
+    double r;
+    for (j=0; j<n1; ++j) {
+        for (i=2; i<n2; ++i) {
+            idx = j*n2 + i;
+            r = 1.0 / (b[idx] - a[idx]*c[idx-1]);
+            d[idx] = r * (d[idx] - a[idx]*d[idx-1]);
+            e[idx] = r * (e[idx] - a[idx]*e[idx-1]);
+            c[idx] = r * c[idx];
+        }
+    }
+
+    for (j=0; j<n1; ++j) {
+        for (i=n2-2; i>=1; --i) {
+            idx = j*n2 + i;
+            d[idx] = d[idx] - c[idx] * d[idx + 1];
+            e[idx] = e[idx] - c[idx] * e[idx + 1];
+        }
+    }
+
+    for (j=0; j<n1; ++j) {
+        idx = j*n2 + 0;
+        d[idx] = (d[idx] - a[idx]*d[idx + (n2-1)] - c[idx]*d[idx + 1]) \
+               / (b[idx] + a[idx]*e[idx + (n2-1)] + c[idx]*e[idx + 1]);
+    }
+
+    double dd;
+    for (j=0; j<n1; ++j) {
+        dd = d[j*n2 + 0];
+        for (i=1; i<n2; ++i) {
+            idx = j*n2 + i;
+            d[idx] = d[idx] + dd*e[idx];
         }
     }
 }
