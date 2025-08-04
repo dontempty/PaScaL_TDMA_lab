@@ -263,4 +263,4 @@ void MPISubdomain::boundary(std::vector<double>& theta,
     }
 }
 
-MPISubdomain sub;
+// MPISubdomain sub;

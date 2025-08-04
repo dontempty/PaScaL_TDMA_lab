@@ -12,57 +12,61 @@
 
 int main(int argc, char** argv) {
 
-    int nprocs, myrank;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  int nprocs, myrank;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
-    params.load(argv[1]); 
+  GlobalParams params;
+  MPITopology topo;
+  MPISubdomain sub;
 
-    // x, y, z
-    topo.init(
-      { params.np_dim[0], params.np_dim[1] },
-      { false, true }
-    );
+  params.load(argv[1]); 
 
-    topo.make();
+  // x, y, z
+  topo.init(
+    { params.np_dim[0], params.np_dim[1] },
+    { false, true }
+  );
 
-    auto cx = topo.commX();
-    auto cy = topo.commY();
+  topo.make();
 
-    // 3) npx, rankx 등 변수 정의
-    int npx   = params.np_dim[0], rankx = cx.myrank;
-    int npy   = params.np_dim[1], ranky = cy.myrank;
+  auto cx = topo.commX();
+  auto cy = topo.commY();
 
-    // 4) 서브도메인 객체 만들기
-    sub.make(params, npx, rankx, npy, ranky);
+  // 3) npx, rankx 등 변수 정의
+  int npx   = params.np_dim[0], rankx = cx.myrank;
+  int npy   = params.np_dim[1], ranky = cy.myrank;
 
-    // 5) ghostcell 통신용 MPI_Datatype 생성
-    sub.makeGhostcellDDType();
+  // 4) 서브도메인 객체 만들기
+  sub.make(params, npx, rankx, npy, ranky);
 
-    sub.mesh(params, rankx, ranky, npx, npy);
+  // 5) ghostcell 통신용 MPI_Datatype 생성
+  sub.makeGhostcellDDType();
 
-    // 7) x, y-방향 경계 인덱스 설정
-    sub.indices(params, rankx, npx, ranky, npy);
+  sub.mesh(params, rankx, ranky, npx, npy);
 
-    // 8) theta 필드 (subdomain 크기에 맞춘 flat 배열) 준비
-    std::vector<double> theta((sub.ny_sub + 1) * (sub.nx_sub + 1), 0.0);
+  // 7) x, y-방향 경계 인덱스 설정
+  sub.indices(params, rankx, npx, ranky, npy);
 
-    // 9) 내부 값 초기화
-    sub.initialization(theta, params);
-    MPI_Barrier(MPI_COMM_WORLD);
+  // 8) theta 필드 (subdomain 크기에 맞춘 flat 배열) 준비
+  std::vector<double> theta((sub.ny_sub + 1) * (sub.nx_sub + 1), 0.0);
 
-    // 10) ghostcell 교환
-    sub.ghostcellUpdate(theta, cx, cy, params);
+  // 9) 내부 값 초기화
+  sub.initialization(theta, params);
+  MPI_Barrier(MPI_COMM_WORLD);
 
-    // 11) bdy값 저장하기
-    sub.boundary(theta, params, rankx, npx, ranky, npy);
+  // 10) ghostcell 교환
+  sub.ghostcellUpdate(theta, cx, cy, params);
 
-    // 12) 솔버 호출해서 실행하기
-    solve_theta solver;
-    solver.solve_theta_plan_single(theta);
-    
-    sub.clean();
-    topo.clean();
-    MPI_Finalize();
+  // 11) bdy값 저장하기
+  sub.boundary(theta, params, rankx, npx, ranky, npy);
+
+  // 12) 솔버 호출해서 실행하기
+  solve_theta solver(params, topo, sub);
+  solver.solve_theta_plan_single(theta);
+
+  sub.clean();
+  topo.clean();
+  MPI_Finalize();
 };

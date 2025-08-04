@@ -72,6 +72,6 @@ public:
     MPI_Datatype ddtype_sendto_N, ddtype_recvfrom_S, ddtype_sendto_S, ddtype_recvfrom_N;
 };
 
-extern MPISubdomain sub;
+// extern MPISubdomain sub;
 
 #endif // MPI_SUBDOMAIN_HPP

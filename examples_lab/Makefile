@@ -21,7 +21,7 @@ TARGET := main_lab.exe
 
 # ── MPI 실행 설정 ─────────────────────────────────────────
 MPIEXEC    := mpiexec
-NPROCS     := 8
+NPROCS     := 4
 INPUT_FILE := ../run/PARA_INPUT.txt
 
 .PHONY: all clean run

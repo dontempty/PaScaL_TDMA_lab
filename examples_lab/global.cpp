@@ -94,4 +94,4 @@ void GlobalParams::load(const std::string& filename) {
     // dz = lz / (nz - 1);
 }
 
-GlobalParams params;
+// GlobalParams params;

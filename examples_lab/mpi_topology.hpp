@@ -43,6 +43,6 @@ private:
     CartComm1D          comm_x_, comm_y_, comm_z_;
 };
 
-extern MPITopology topo;
+// extern MPITopology topo;
 
 #endif // MPI_TOPOLOGY_HPP

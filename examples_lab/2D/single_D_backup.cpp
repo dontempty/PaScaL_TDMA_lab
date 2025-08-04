@@ -54,14 +54,14 @@ void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vecto
     }
 }
 
-// compile = g++ -O2 -std=c++17 -static-libgcc -static-libstdc++ -o single_D.exe single_D.cpp
-// Run = ./single_D.exe 
+// compile = g++ -O2 -std=c++17 -static-libgcc -static-libstdc++ -o single_D_backup.exe single_D_backup.cpp
+// Run = ./single_D_backup.exe 
 int main() {
 
     int i, j;
 
-    int Nx = 2048; 
-    int Ny = 2048;
+    int Nx = 128; 
+    int Ny = 128;
     int nx1 = Nx+2;
     int ny1 = Ny+2;
 
@@ -137,7 +137,7 @@ int main() {
 
         // Calculating r.h.s -------------------------------------------------------------------
         for (j=1; j<ny1-1; ++j) {
-            for (i=0; i<nx1; ++i) {
+            for (i=1; i<nx1-1; ++i) {
                 idx = j * nx1 + i;
                 idx_jm = (j-1) * nx1 + i;
                 idx_jp = (j+1) * nx1 + i;
@@ -225,7 +225,7 @@ int main() {
         for (i=1; i<nx1-1; ++i) {
             
             coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + 5.0/3.0 );
-            coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + 5.0/3.0);
+            coef_y_c = (dt / 2.0 / dxdx) * ( 1.0 + 5.0/3.0);
 
             j = 1;
             idx = (j) * nx1 + (i);

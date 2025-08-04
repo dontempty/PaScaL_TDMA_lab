@@ -5,6 +5,12 @@
 #include <cmath>
 #include <chrono> 
 
+// solve_theta.cpp
+solve_theta::solve_theta(const GlobalParams& params,
+                         const MPITopology& topo,
+                         MPISubdomain& sub)
+    : params(params), topo(topo), sub(sub) {}
+
 void solve_theta::solve_theta_plan_single(std::vector<double>& theta) 
 {   
     int myrank, ierr;
