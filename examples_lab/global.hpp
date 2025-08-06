@@ -14,9 +14,7 @@ public:
     void load(const std::string& filename);
 
     // 물리 및 수치 파라미터
-    double Pr, Ra;
-    int    Tmax;
-
+    int Tmax;
     int nx, ny, nz;
     int nxm, nym, nzm;
     int nxp, nyp, nzp;
@@ -26,11 +24,8 @@ public:
     double x0, xN, y0, yN, z0, zN;
     double dx, dy, dz;
 
-    double theta_cold, theta_hot, alphaG, nu, Ct;
-    double theta_x_R_D, theta_x_L_D, theta_y_L_D, theta_y_R_D;
-
     // MPI 프로세스 분할
-    std::array<int,3> np_dim;
+    std::array<int, 3> np_dim;
 };
 
 // extern GlobalParams params;

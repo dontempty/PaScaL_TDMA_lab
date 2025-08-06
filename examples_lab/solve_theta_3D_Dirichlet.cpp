@@ -70,10 +70,10 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     std::vector<double> theta_y(nx1 * ny1 * nz1, 0.0);
     
     double dt = 0.001;
-    int max_iter = 1;
+    int max_iter = 100;
+    auto start = std::chrono::steady_clock::now();
     for (int t_step=0; t_step<max_iter; ++t_step) {
 
-        auto start_rhs = std::chrono::steady_clock::now();
         // Calculating r.h.s -----------------------------------------------------------------------------------------------------
 
         // rhs_x ---------------------------
@@ -137,13 +137,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
         }
 
         // sub.ghostcellUpdate(rhs_z, cx, cy, cz, params);
-        auto end_rhs = std::chrono::steady_clock::now();
-        auto elapsed_ms_rhs = std::chrono::duration_cast<std::chrono::milliseconds>(end_rhs - start_rhs).count();
-        std::cout << "[myrank] = " << myrank << "| make rhs: " << elapsed_ms_rhs << " ms\n";
 
         // Calculating A matrix ----------------------------------------------------------------
         
-        auto start_bdyz = std::chrono::steady_clock::now();
         // bdy(z)
         for (j=1; j<ny1-1; ++j) {
 
@@ -209,11 +205,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                                                          sub.theta_z_right_index[nz1-2];         
             }
         }
-        auto end_bdyz = std::chrono::steady_clock::now();
-        auto elapsed_ms_bdyz = std::chrono::duration_cast<std::chrono::milliseconds>(end_bdyz - start_bdyz).count();
-        std::cout << "[myrank] = " << myrank << "| make bdy(z): " << elapsed_ms_bdyz << " ms\n";
 
-        auto start_solvez = std::chrono::steady_clock::now();
         // z solve
         for (j=1; j<ny1-1; ++j) {
             for (i=1; i<nx1-1; ++i) {
@@ -237,11 +229,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                 }
             }
         }
-        auto end_solvez = std::chrono::steady_clock::now();
-        auto elapsed_ms_solvez = std::chrono::duration_cast<std::chrono::milliseconds>(end_solvez - start_solvez).count();
-        std::cout << "[myrank] = " << myrank << "| solve(z): " << elapsed_ms_solvez << " ms\n";
 
-        auto start_bdyy = std::chrono::steady_clock::now();
         // bdy(y)
         for (k=1; k<nz1-1; ++k) {
             for (i=1; i<nx1-1; ++i) {
@@ -272,11 +260,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                                                            (-coef_x_a*sub.theta_y_right_sub[idx_im] + (1.0-coef_x_b)*sub.theta_y_right_sub[idx] - coef_x_c*sub.theta_y_right_sub[idx_ip]);
             }
         }
-        auto end_bdyy = std::chrono::steady_clock::now();
-        auto elapsed_ms_bdyy = std::chrono::duration_cast<std::chrono::milliseconds>(end_bdyy - start_bdyy).count();
-        std::cout << "[myrank] = " << myrank << "| bdy(y): " << elapsed_ms_bdyy << " ms\n";
 
-        auto start_solvey = std::chrono::steady_clock::now();
         // y solve
         for (i=1; i<nx1-1; ++i) {
             for (k=1; k<nz1-1; ++k) {
@@ -300,11 +284,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                 }
             }
         }
-        auto end_solvey = std::chrono::steady_clock::now();
-        auto elapsed_ms_solvey = std::chrono::duration_cast<std::chrono::milliseconds>(end_solvey - start_solvey).count();
-        std::cout << "[myrank] = " << myrank << "| solve(y): " << elapsed_ms_solvey << " ms\n";
 
-        auto start_bdyx = std::chrono::steady_clock::now();
         // bdy(x)
         for (k=1; k<nz1-1; ++k) {
             for (j=1; j<ny1-1; ++j) {
@@ -326,11 +306,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                                                            sub.theta_x_right_sub[idx];
             }
         }
-        auto end_bdyx = std::chrono::steady_clock::now();
-        auto elapsed_ms_bdyx = std::chrono::duration_cast<std::chrono::milliseconds>(end_bdyx - start_bdyx).count();
-        std::cout << "[myrank] = " << myrank << "| bdy(x): " << elapsed_ms_bdyx << " ms\n";
 
-        auto start_solvex = std::chrono::steady_clock::now();
         // x solve
         for (k=1; k<nz1-1; ++k) {
             for (j=1; j<ny1-1; ++j) {
@@ -354,16 +330,16 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                 }
             }
         }
-        auto end_solvex = std::chrono::steady_clock::now();
-        auto elapsed_ms_solvex = std::chrono::duration_cast<std::chrono::milliseconds>(end_solvex - start_solvex).count();
-        std::cout << "[myrank] = " << myrank << "| solve(x): " << elapsed_ms_solvex << " ms\n";
  
         // Update ghostcells from the solutions.
         sub.ghostcellUpdate(theta, cx, cy, cz, params);
 
     }   // Time step end------------------------
+
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     if (myrank==0) {
-        // std::cout << "elapsed time: " << elapsed_ms << " ms\n";
+        std::cout << "elapsed time: " << elapsed_ms << " ms\n";
     }
 
     tdma_x.PaScaL_TDMA_plan_single_destroy(px_single);

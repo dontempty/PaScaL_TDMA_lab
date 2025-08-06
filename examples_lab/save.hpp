@@ -56,7 +56,7 @@ inline void save_3d_to_csv(const std::vector<double>& arr3d,
                                   const std::string& folder,
                                   const std::string& base_filename,
                                   int precision = 6)
-{
+{   
     std::filesystem::path dir(folder);
     if (!std::filesystem::exists(dir)) {
         if (!std::filesystem::create_directories(dir)) {
@@ -87,6 +87,8 @@ inline void save_3d_to_csv(const std::vector<double>& arr3d,
 
         ofs.close();
     }
+
+    std::cout << "save file" << std::endl;
 }
 
 #endif // SAVE_HPP

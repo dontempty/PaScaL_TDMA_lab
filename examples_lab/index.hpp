@@ -1,6 +1,8 @@
 #ifndef INDEX_UTIL_HPP
 #define INDEX_UTIL_HPP
 
+// ------------------ 3D ------------------
+
 // (i, j, k) → ijk layout
 inline int idx_ijk(int i, int j, int k, int nx, int ny) {
     return k * ny * nx + j * nx + i;
@@ -16,6 +18,8 @@ inline int idx_kij(int k, int i, int j, int nz, int nx) {
     return j * nz * nx + i * nz + k;
 }
 
+// ------------------ 2D ------------------
+
 // (i, j) → ij layout
 inline int idx_ij(int i, int j, int nx) {
     return j * nx + i;
@@ -29,6 +33,11 @@ inline int idx_jk(int j, int k, int ny) {
 // (k, i) → ki layout
 inline int idx_ki(int k, int i, int nz) {
     return i * nz + k;
+}
+
+// (i, k) → ki layout
+inline int idx_ik(int i, int k, int nx) {
+    return k * nx + i;
 }
 
 #endif // INDEX_UTIL_HPP
