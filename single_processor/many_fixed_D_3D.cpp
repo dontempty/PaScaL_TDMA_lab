@@ -1,71 +1,131 @@
-#include "save.hpp"
+#include "../examples_lab/save.hpp"
+#include "../examples_lab/index.hpp"
+
 #include "iostream"
 #include <vector>
 #include <cmath>
 #include <chrono> 
 
-#include "index.hpp"
+void tdma_many(
+    std::vector<double> &a,
+    std::vector<double> &b,
+    std::vector<double> &c,
+    std::vector<double> &d,
+    int n1, int n2) {
+    // n1: n_sys
+    // n2: n_row
+        
+    std::vector<double> r(n1);
+    int idx;
+    int i, j;
 
-void tdma_single(std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d, int n1) {
-    int i;
+    // Forward elimination
+    for (j = 0; j < n1; ++j) {
+        idx = j*n2 + 0;
+
+        d[idx] /= b[idx];
+        c[idx] /= b[idx];
+    }
+
+    for (j = 0; j < n1; ++j) {
+        // r[j] = 1.0 / (b[idx] - a[idx] * c[idx - 1]);
+        for (i = 1; i < n2; ++i) {
+            idx = j*n2 + i;
+            double r = 1.0 / (b[idx] - a[idx] * c[idx - 1]);
+            d[idx] = r * (d[idx] - a[idx] * d[idx - 1]);
+            c[idx] = r * c[idx];
+        }
+    }
+
+    // Back substitution
+    for (j = 0; j < n1; ++j) {
+        for (i = n2-2; i >= 0; --i) {
+            idx = j*n2 + i;
+
+            d[idx] = d[idx] - c[idx] * d[idx + 1];
+        }
+    }
+}
+
+void tdma_cycl_many(
+    std::vector<double> &a,
+    std::vector<double> &b,
+    std::vector<double> &c,
+    std::vector<double> &d,
+    int n1, int n2) {
+    // n1: n_sys
+    // n2: n_row
+        
+    // std::vector<double> r(n2);
+    std::vector<double> e(n1*n2);
+    int idx;
+    int i, j;
+
+    for (j=0; j<n1; ++j) {
+        for (i=0; i<n2; ++i) {
+            idx = j*n2 +i;
+            e[idx] = 0;
+        }
+        idx = j*n2 + 1;
+        e[idx] = -a[idx];
+        
+        idx = j*n2 + (n2-1);
+        e[idx] = -c[idx];
+    }
+
+    for (j=0; j<n1; ++j) {
+        idx = j*n2 + 1;
+        d[idx] /= b[idx];
+        e[idx] /= b[idx];
+        c[idx] /= b[idx];
+    }
+
     double r;
-
-    d[0] = d[0]/b[0];
-    c[0] = c[0]/b[0];
-
-    for (i=1; i<=n1-1; ++i) {
-        r = 1.0/(b[i]-a[i]*c[i-1]);
-        d[i] = r*(d[i]-a[i]*d[i-1]);
-        c[i] = r*c[i];
+    for (j=0; j<n1; ++j) {
+        for (i=2; i<n2; ++i) {
+            idx = j*n2 + i;
+            r = 1.0 / (b[idx] - a[idx]*c[idx-1]);
+            d[idx] = r * (d[idx] - a[idx]*d[idx-1]);
+            e[idx] = r * (e[idx] - a[idx]*e[idx-1]);
+            c[idx] = r * c[idx];
+        }
     }
 
-    for (i=n1-2; i>=0; --i) {
-        d[i] = d[i]-c[i]*d[i+1];
-    }
-}
-
-void tdma_cycl_single(std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d, int n1) {
-
-    int i;
-    double rr;
-
-    std::vector<double> e(n1, 0.0);
-    e[1] = -a[1];
-    e[n1-1] = -c[n1-1];
-
-    d[1] = d[1]/b[1];
-    e[1] = e[1]/b[1];
-    c[1] = c[1]/b[1];
-
-    for (i=2; i<=n1-1; ++i) {
-        rr = 1.0 / (b[i] - a[i]*c[i-1]);
-        d[i] = rr*(d[i] - a[i]*d[i-1]);
-        e[i] = rr*(e[i] - a[i]*e[i-1]);
-        c[i] = rr*c[i];
+    for (j=0; j<n1; ++j) {
+        for (i=n2-2; i>=1; --i) {
+            idx = j*n2 + i;
+            d[idx] = d[idx] - c[idx] * d[idx + 1];
+            e[idx] = e[idx] - c[idx] * e[idx + 1];
+        }
     }
 
-    for (i=n1-2; i>=1; --i) {
-        d[i] = d[i] - c[i]*d[i+1];
-        e[i] = e[i] - c[i]*e[i+1];
+    for (j=0; j<n1; ++j) {
+        idx = j*n2 + 0;
+        d[idx] = (d[idx] - a[idx]*d[idx + (n2-1)] - c[idx]*d[idx + 1]) \
+               / (b[idx] + a[idx]*e[idx + (n2-1)] + c[idx]*e[idx + 1]);
     }
 
-    d[0] = (d[0] - a[0]*d[n1-1] - c[0]*d[1])/(b[0] + a[0]*e[n1-1] + c[0]*e[1]);
-
-    for (i=1; i<=n1-1; ++i) {
-        d[i] = d[i] + d[0]*e[i];
+    double dd;
+    for (j=0; j<n1; ++j) {
+        dd = d[j*n2 + 0];
+        for (i=1; i<n2; ++i) {
+            idx = j*n2 + i;
+            d[idx] = d[idx] + dd*e[idx];
+        }
     }
 }
 
-// compile = g++ -O2 -std=c++17 -static-libgcc -static-libstdc++ -o single_fixed_D_3D.exe single_fixed_D_3D.cpp
-// Run = ./single_fixed_D_3D.exe 
+
+// compile = g++ -O2 -std=c++17 -static-libgcc -static-libstdc++ -o many_fixed_D_3D.exe many_fixed_D_3D.cpp
+// Run = ./many_fixed_D_3D.exe 
 int main() {
 
     int i, j, k;
 
     // paramater
-    int Nx = 64; 
-    int Ny = 64;
-    int Nz = 64;
+    int Nx = 128; 
+    int Ny = 128;
+    int Nz = 128;
     int nx1 = Nx+2;
     int ny1 = Ny+2;
     int nz1 = Nz+2;
@@ -121,9 +181,9 @@ int main() {
     theta_z_left_index[1] = 1;
     theta_z_right_index[nz1-2] = 1;
 
-    std::vector<double> Ax(nx1-2), Bx(nx1-2), Cx(nx1-2), Dx(nx1-2);
-    std::vector<double> Ay(ny1-2), By(ny1-2), Cy(ny1-2), Dy(ny1-2);
-    std::vector<double> Az(nz1-2), Bz(nz1-2), Cz(nz1-2), Dz(nz1-2);
+    std::vector<double> Axx((nx1-2)*(ny1-2)), Bxx((nx1-2)*(ny1-2)), Cxx((nx1-2)*(ny1-2)), Dxx((nx1-2)*(ny1-2));
+    std::vector<double> Ayy((ny1-2)*(nz1-2)), Byy((ny1-2)*(nz1-2)), Cyy((ny1-2)*(nz1-2)), Dyy((ny1-2)*(nz1-2));
+    std::vector<double> Azz((nz1-2)*(nx1-2)), Bzz((nz1-2)*(nx1-2)), Czz((nz1-2)*(nx1-2)), Dzz((nz1-2)*(nx1-2));
 
     std::vector<double> rhs_x(nx1 * ny1 * nz1, 0.0);
     std::vector<double> rhs_y(nx1 * ny1 * nz1, 0.0);
@@ -133,7 +193,7 @@ int main() {
     std::vector<double> theta(nx1 * ny1 * nz1, 0.0);
     
     int idx;
-    int ij, ik, jk;
+    int ij, ik, jk, ki;
     int ijk;
     int idx_ip, idx_im;
     int idx_jp, idx_jm;
@@ -198,7 +258,7 @@ int main() {
         }
     }
 
-    int max_iter = 100;
+    int max_iter = 10;
     double dt = 0.001;
     int time;
     auto start = std::chrono::steady_clock::now();
@@ -224,7 +284,6 @@ int main() {
             }
         }
 
-        
 
         // rhs_y ---------------------------
         for (i=1; i<nx1-1; ++i) {
@@ -243,6 +302,7 @@ int main() {
                 }
             }
         }
+
 
         // rhs_z ---------------------------
         for (j=1; j<ny1-1; ++j) {
@@ -326,23 +386,28 @@ int main() {
             for (i=1; i<nx1-1; ++i) {
                 for (k=1; k<nz1-1; ++k) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
+                    ki = idx_ki(k-1, i-1, nz1-2);
                     dzdz = DZ[k]*DZ[k];
 
                     coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 + (5.0/3.0) * theta_z_left_index[k] + (1.0/3.0) * theta_z_right_index[k] );
                     coef_z_b = (dt / 2.0 / dzdz) * (-2.0 -     (2.0) * theta_z_left_index[k] -     (2.0) * theta_z_right_index[k] );
                     coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 + (1.0/3.0) * theta_z_left_index[k] + (5.0/3.0) * theta_z_right_index[k] );
 
-                    Az[k-1] = -coef_z_a;
-                    Bz[k-1] = (1.0-coef_z_b);
-                    Cz[k-1] = -coef_z_c;
-                    Dz[k-1] = rhs_z[ijk];
-                }
-                tdma_single(Az, Bz, Cz, Dz, nz1-2);
-                for (k=1; k<nz1-1; ++k) {
-                    ijk = idx_ijk(i, j, k, nx1, ny1);
-                    theta_z[ijk] = Dz[k-1];
+                    Azz[ki] = -coef_z_a;
+                    Bzz[ki] = (1.0-coef_z_b);
+                    Czz[ki] = -coef_z_c;
+                    Dzz[ki] = rhs_z[ijk];
                 }
             }
+            tdma_many(Azz, Bzz, Czz, Dzz, nx1-2, nz1-2);
+            for (i=1; i<nx1; ++i) {
+                for (k=1; k<nz1-1; ++k) {
+                    ijk = idx_ijk(i, j, k, nx1, ny1);
+                    ki = idx_ki(k-1, i-1, nz1-2);
+
+                    theta_z[ijk] = Dzz[ki];
+                }
+            } 
         }
 
         // bdy(y)
@@ -379,23 +444,27 @@ int main() {
             for (k=1; k<nz1-1; ++k) {
                 for (j=1; j<ny1-1; ++j) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
+                    jk = idx_jk(j-1, k-1, ny1-2);
                     dydy = DY[j]*DY[j];
 
                     coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * theta_y_left_index[j] + (1.0/3.0) * theta_y_right_index[j] );
                     coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * theta_y_left_index[j] -     (2.0) * theta_y_right_index[j] );
                     coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * theta_y_left_index[j] + (5.0/3.0) * theta_y_right_index[j] );
 
-                    Ay[j-1] = -coef_y_a;
-                    By[j-1] = (1.0-coef_y_b);
-                    Cy[j-1] = -coef_y_c;
-                    Dy[j-1] = theta_z[ijk];
-                }
-                tdma_single(Ay, By, Cy, Dy, ny1-2);
-                for (j=1; j<ny1-1; ++j) {
-                    ijk = idx_ijk(i, j, k, nx1, ny1);
-                    theta_y[ijk] = Dy[j-1];
+                    Ayy[jk] = -coef_y_a;
+                    Byy[jk] = (1.0-coef_y_b);
+                    Cyy[jk] = -coef_y_c;
+                    Dyy[jk] = theta_z[ijk];
                 }
             }
+            tdma_many(Ayy, Byy, Cyy, Dyy, nz1-2, ny1-2);
+            for (k=1; k<nz1-1; ++k) {
+                for (j=1; j<ny1-1; ++j) {
+                    ijk = idx_ijk(i, j, k, nx1, ny1);
+                    jk = idx_jk(j-1, k-1, ny1-2);
+                    theta_y[ijk] = Dyy[jk];
+                }
+            }  
         }
 
         // bdy(x)
@@ -424,21 +493,25 @@ int main() {
             for (j=1; j<ny1-1; ++j) {
                 for (i=1; i<nx1-1; ++i) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
+                    ij = idx_ij(i-1, j-1, nx1-2);
                     dxdx = (DX[i]*DX[i]);
 
                     coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * theta_x_left_index[i] + (1.0/3.0) * theta_x_right_index[i] );
                     coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * theta_x_left_index[i] -     (2.0) * theta_x_right_index[i] );
                     coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * theta_x_left_index[i] + (5.0/3.0) * theta_x_right_index[i] );
 
-                    Ax[i-1] = -coef_x_a;
-                    Bx[i-1] = (1.0-coef_x_b);
-                    Cx[i-1] = -coef_x_c;
-                    Dx[i-1] = theta_y[ijk];
+                    Axx[ij] = -coef_x_a;
+                    Bxx[ij] = (1.0-coef_x_b);
+                    Cxx[ij] = -coef_x_c;
+                    Dxx[ij] = theta_y[ijk];
                 }
-                tdma_single(Ax, Bx, Cx, Dx, nx1-2);
+            }
+            tdma_many(Axx, Bxx, Cxx, Dxx, ny1-2, nx1-2);
+            for (j=1; j<ny1-1; ++j) {
                 for (i=1; i<nx1-1; ++i) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    theta[ijk] = Dx[i-1];
+                    ij = idx_ij(i-1, j-1, nx1-2);
+                    theta[ijk] = Dxx[ij];
                 }
             }
         }
@@ -449,7 +522,7 @@ int main() {
 
     // save results
     std::cout << "tN = " << dt * max_iter << std::endl;
-    save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
+    // save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
 
     return 0;
 }

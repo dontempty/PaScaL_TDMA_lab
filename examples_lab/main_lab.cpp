@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
       for (int i=1; i<(sub.nx_sub + 1)-1; ++i) {
         ijk = k*(sub.nx_sub + 1)*(sub.ny_sub + 1) + j*(sub.nx_sub + 1) + i;
 
-        exact_value = sin(Pi*sub.x_sub[i])*sin(Pi*sub.y_sub[j])*sin(Pi*sub.z_sub[k]) * exp(-3*Pi*Pi * 0.1) +
+        exact_value = sin(Pi*sub.x_sub[i])*sin(Pi*sub.y_sub[j])*sin(Pi*sub.z_sub[k]) * exp(-3*Pi*Pi * 0.01) +
                       cos(Pi*sub.x_sub[i])*cos(Pi*sub.y_sub[j])*cos(Pi*sub.z_sub[k]);
 
         local_error += pow(theta[ijk] - exact_value, 2);
@@ -93,10 +93,7 @@ int main(int argc, char** argv) {
       std::cout << "Global L2 error = " << std::sqrt(global_error / params.nx / params.ny / params.nz) << "\n";
   }
 
-
-
-
-  // 13) solution 하나로 합치기
+  // // 13) solution 하나로 합치기
   // std::vector<double> global_theta;
   // if (myrank==0) {
   //   global_theta.assign((params.nx+1)*(params.ny+1)*(params.nz+1), -1.0);
@@ -119,7 +116,7 @@ int main(int argc, char** argv) {
   //   //     std::cout << "\n";
   //   // }
 
-  //   // save_3d_to_csv(global_theta, (params.nx+1), (params.ny+1), (params.nz+1), "results", "theta", 15);
+  //   save_3d_to_csv(global_theta, (params.nx+1), (params.ny+1), (params.nz+1), "results", "theta", 15);
   // }
 
 
