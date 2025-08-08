@@ -1,0 +1,9 @@
+single_processor/*.exe
+single_processor/results/*.csv
+
+examples_lab/*.exe
+examples_lab/results/*.csv
+
+*.o
+*.out
+*.log

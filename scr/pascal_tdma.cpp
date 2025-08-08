@@ -8,6 +8,7 @@
 #include "../examples_lab/mpi_subdomain.hpp"
 #include "../examples_lab/mpi_topology.hpp"
 #include "para_range.hpp"
+#include "../examples_lab/timer.hpp"
 
 // Create a plan for a single tridiagonal system of equations.
 void PaScaL_TDMA::PaScaL_TDMA_plan_single_create(ptdma_plan_single& plan, int myrank, int nprocs, MPI_Comm mpi_world, int gather_rank) {
@@ -36,82 +37,100 @@ void PaScaL_TDMA::PaScaL_TDMA_plan_single_destroy(ptdma_plan_single& plan) {
 void PaScaL_TDMA::PaScaL_TDMA_single_solve(ptdma_plan_single& plan, 
                                 std::vector<double>& A, std::vector<double>& B, std::vector<double>& C, std::vector<double>& D, int n_row) {
 
-    // 1) 초기 작업 및 reduced system 만든다.
-    // A_rd, ... 여기에 저장
-    A[0] = A[0]/B[0];
-    D[0] = D[0]/B[0];
-    C[0] = C[0]/B[0];
 
-    A[1] = A[1]/B[1];
-    D[1] = D[1]/B[1];
-    C[1] = C[1]/B[1];
-    
-    double r;
-    for (int i=2; i<n_row; ++i) {
-        r = 1/(B[i] - A[i]*C[i-1]);
-        D[i] = r*(D[i] - A[i]*D[i-1]);
-        C[i] = r*C[i];
-        A[i] = -r*A[i]*A[i-1];
+    if (plan.nprocs==1) {
+        tdma_single(A, B, C, D, n_row);
     }
+    else {
+        // MultiTimer timer;
 
-    // Reduction step : elimination of upper diagonal elements
-    for (int i=n_row-3; i>=1; --i) {
-        D[i] = D[i] - C[i]*D[i+1];
-        A[i] = A[i] - C[i]*A[i+1];
-        C[i] = -C[i]*C[i+1];
+        // 1) 초기 작업 및 reduced system 만든다.
+        // A_rd, ... 여기에 저장
+        // timer.start("prepare");
+
+        A[0] = A[0]/B[0];
+        D[0] = D[0]/B[0];
+        C[0] = C[0]/B[0];
+
+        A[1] = A[1]/B[1];
+        D[1] = D[1]/B[1];
+        C[1] = C[1]/B[1];
+        
+        double r;
+        for (int i=2; i<n_row; ++i) {
+            r = 1.0/(B[i] - A[i]*C[i-1]);
+            D[i] = r*(D[i] - A[i]*D[i-1]);
+            C[i] = r*C[i];
+            A[i] = -r*A[i]*A[i-1];
+        }
+
+        // Reduction step : elimination of upper diagonal elements
+        for (int i=n_row-3; i>=1; --i) {
+            D[i] = D[i] - C[i]*D[i+1];
+            A[i] = A[i] - C[i]*A[i+1];
+            C[i] = -C[i]*C[i+1];
+        }
+
+        r = 1.0/(1.0 - A[1]*C[0]);
+        D[0] = r*(D[0]-C[0]*D[1]);
+        A[0] = r*A[0];
+        C[0] = -r*C[0]*C[1];
+
+        // 여기서 통신해서 푼다.
+
+        // 2) MPI_Igather 로 reduced system 을 gather_rank 로 모은다.
+        // A_rd -> A_rt 로 전송
+        // A_rt, ... 여기에 저장
+
+        // Construct a reduced tridiagonal system of equations per each rank. Each process has two reduced rows.
+        plan.A_rd[0] = A[0];    plan.A_rd[1] = A[n_row-1];
+        plan.B_rd[0] = 1.0;     plan.B_rd[1] = 1.0;
+        plan.C_rd[0] = C[0];    plan.C_rd[1] = C[n_row-1];
+        plan.D_rd[0] = D[0];    plan.D_rd[1] = D[n_row-1];
+        // std::cout << "[prepare] elapsed: " << timer.elapsed_ns("prepare") << " ns\n";
+
+        // Gather the coefficients of the reduced tridiagonal system to a defined rank, plan%gather_rank.
+        // timer.start("Igather");
+        std::vector<int> request(4);
+        MPI_Igather(plan.A_rd.data(), 2, MPI_DOUBLE, 
+                    plan.A_rt.data(), 2, MPI_DOUBLE,
+                    plan.gather_rank, plan.ptdma_world, &request[0]);
+        MPI_Igather(plan.B_rd.data(), 2, MPI_DOUBLE, 
+                    plan.B_rt.data(), 2, MPI_DOUBLE,
+                    plan.gather_rank, plan.ptdma_world, &request[1]);
+        MPI_Igather(plan.C_rd.data(), 2, MPI_DOUBLE, 
+                    plan.C_rt.data(), 2, MPI_DOUBLE,
+                    plan.gather_rank, plan.ptdma_world, &request[2]);
+        MPI_Igather(plan.D_rd.data(), 2, MPI_DOUBLE, 
+                    plan.D_rt.data(), 2, MPI_DOUBLE,
+                    plan.gather_rank, plan.ptdma_world, &request[3]);
+        MPI_Waitall(4, request.data(), MPI_STATUS_IGNORE);
+        // std::cout << "[Igather] elapsed: " << timer.elapsed_ns("Igather") << " ns\n";
+
+        // 3) gather_rank가 reduced system 을 tdma_single 으로 푼다.
+        if (plan.myrank==plan.gather_rank) {
+            // timer.start("solve_reduced");
+            tdma_single(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_row_rt);
+            // std::cout << "[solve_reduced] elapsed: " << timer.elapsed_ns("solve_reduced") << " ns\n";
+        };
+        
+        // 4) MPI_Iscatter로 각 랭크에 값을 뿌린다.
+        // timer.start("Iscatter");
+        MPI_Iscatter(plan.D_rt.data(), 2, MPI_DOUBLE,
+                    plan.D_rd.data(), 2, MPI_DOUBLE,
+                    plan.gather_rank, plan.ptdma_world, &request[0]);
+        MPI_Waitall(1, request.data(), MPI_STATUS_IGNORE);
+        // std::cout << "[Iscatter] elapsed: " << timer.elapsed_ns("Iscatter") << " ns\n";
+
+        // 5) 이젠 그냥 알아서 푼다.
+        // timer.start("solve_remain");
+        D[0] = plan.D_rd[0];
+        D[n_row-1] = plan.D_rd[1];
+        for (int i=1; i<n_row-1; ++i) {
+            D[i] = D[i] - A[i]*D[0] - C[i]*D[n_row-1];
+        };
+        // std::cout << "[solve_remain] elapsed: " << timer.elapsed_ns("solve_remain") << " ns\n";
     }
-
-    r = 1/(1 - A[1]*C[0]);
-    D[0] = r*(D[0]-C[0]*D[1]);
-    A[0] = r*A[0];
-    C[0] = -r*C[0]*C[1];
-
-    // 여기서 통신해서 푼다.
-
-    // 2) MPI_Igather 로 reduced system 을 gather_rank 로 모은다.
-    // A_rd -> A_rt 로 전송
-    // A_rt, ... 여기에 저장
-
-    // Construct a reduced tridiagonal system of equations per each rank. Each process has two reduced rows.
-    plan.A_rd[0] = A[0];    plan.A_rd[1] = A[n_row-1];
-    plan.B_rd[0] = 1;       plan.B_rd[1] = 1;
-    plan.C_rd[0] = C[0];    plan.C_rd[1] = C[n_row-1];
-    plan.D_rd[0] = D[0];    plan.D_rd[1] = D[n_row-1];
-
-    // Gather the coefficients of the reduced tridiagonal system to a defined rank, plan%gather_rank.
-    std::vector<int> request(4);
-
-    MPI_Igather(plan.A_rd.data(), 2, MPI_DOUBLE, 
-                plan.A_rt.data(), 2, MPI_DOUBLE,
-                plan.gather_rank, plan.ptdma_world, &request[0]);
-    MPI_Igather(plan.B_rd.data(), 2, MPI_DOUBLE, 
-                plan.B_rt.data(), 2, MPI_DOUBLE,
-                plan.gather_rank, plan.ptdma_world, &request[1]);
-    MPI_Igather(plan.C_rd.data(), 2, MPI_DOUBLE, 
-                plan.C_rt.data(), 2, MPI_DOUBLE,
-                plan.gather_rank, plan.ptdma_world, &request[2]);
-    MPI_Igather(plan.D_rd.data(), 2, MPI_DOUBLE, 
-                plan.D_rt.data(), 2, MPI_DOUBLE,
-                plan.gather_rank, plan.ptdma_world, &request[3]);
-    MPI_Waitall(4, request.data(), MPI_STATUS_IGNORE);
-
-    // 3) gather_rank가 reduced system 을 tdma_single 으로 푼다.
-    if (plan.myrank==plan.gather_rank) {
-        tdma_single(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_row_rt);
-    };
-    
-    // 4) MPI_Iscatter로 각 랭크에 값을 뿌린다.
-    MPI_Iscatter(plan.D_rt.data(), 2, MPI_DOUBLE,
-                plan.D_rd.data(), 2, MPI_DOUBLE,
-                plan.gather_rank, plan.ptdma_world, &request[0]);
-    MPI_Waitall(1, request.data(), MPI_STATUS_IGNORE);
-
-    // 5) 이젠 그냥 알아서 푼다.
-    D[0] = plan.D_rd[0];
-    D[n_row-1] = plan.D_rd[1];
-    for (int i=1; i<n_row-1; ++i) {
-        D[i] = D[i] - A[i]*D[0] - C[i]*D[n_row-1];
-    };
 }
 
 void PaScaL_TDMA::PaScaL_TDMA_single_solve_cycle(ptdma_plan_single& plan, 
@@ -331,92 +350,97 @@ void PaScaL_TDMA::PaScaL_TDMA_many_solve(ptdma_plan_many& plan,
     double r;
     int idx;
 
-    for (j = 0; j < n_sys; ++j) {
-        idx = j * n_row + 0;
-        A[idx] /= B[idx];
-        D[idx] /= B[idx];
-        C[idx] /= B[idx];
-
-        idx = j * n_row + 1;
-        A[idx] /= B[idx];
-        D[idx] /= B[idx];
-        C[idx] /= B[idx];
+    if (plan.nprocs==1) {
+        tdma_many(A, B, C, D, n_sys, n_row);
     }
+    else {
+        for (j = 0; j < n_sys; ++j) {
+            idx = j * n_row + 0;
+            A[idx] /= B[idx];
+            D[idx] /= B[idx];
+            C[idx] /= B[idx];
 
-    for (j = 0; j < n_sys; ++j) {
-        for (i = 2; i < n_row; ++i) {
-            idx = j * n_row + i;
-            r = 1.0 / (B[idx] - A[idx]*C[idx - 1]);
-            D[idx] = r * (D[idx] - A[idx]*D[idx - 1]);
-            C[idx] = r * C[idx];
-            A[idx] = -r * A[idx] * A[idx - 1];
+            idx = j * n_row + 1;
+            A[idx] /= B[idx];
+            D[idx] /= B[idx];
+            C[idx] /= B[idx];
         }
-    }
 
-    for (j = 0; j < n_sys; ++j) {
-        for (i = n_row - 3; i >= 1; --i) {
-            idx = j * n_row + i;
-
-            D[idx] -= C[idx] * D[idx + 1];
-            A[idx] -= C[idx] * A[idx + 1];
-            C[idx] = -C[idx] * C[idx + 1];
+        for (j = 0; j < n_sys; ++j) {
+            for (i = 2; i < n_row; ++i) {
+                idx = j * n_row + i;
+                r = 1.0 / (B[idx] - A[idx]*C[idx - 1]);
+                D[idx] = r * (D[idx] - A[idx]*D[idx - 1]);
+                C[idx] = r * C[idx];
+                A[idx] = -r * A[idx] * A[idx - 1];
+            }
         }
-    }
 
-    for (j = 0; j < n_sys; ++j) {
-        idx = j*n_row + 0;
+        for (j = 0; j < n_sys; ++j) {
+            for (i = n_row - 3; i >= 1; --i) {
+                idx = j * n_row + i;
 
-        r = 1.0 / (1.0 - A[idx + 1] * C[idx]);
-        D[idx] = r * (D[idx] - C[idx] * D[idx + 1]);
-        A[idx] *= r;
-        C[idx] = -r * C[idx] * C[idx + 1];
+                D[idx] -= C[idx] * D[idx + 1];
+                A[idx] -= C[idx] * A[idx + 1];
+                C[idx] = -C[idx] * C[idx + 1];
+            }
+        }
 
-        plan.A_rd[j * 2 + 0] = A[idx];
-        plan.A_rd[j * 2 + 1] = A[idx + n_row-1];
-        plan.B_rd[j * 2 + 0] = 1.0;
-        plan.B_rd[j * 2 + 1] = 1.0;
-        plan.C_rd[j * 2 + 0] = C[idx];
-        plan.C_rd[j * 2 + 1] = C[idx + n_row-1];
-        plan.D_rd[j * 2 + 0] = D[idx];
-        plan.D_rd[j * 2 + 1] = D[idx + n_row-1];
-    }
-    
-    MPI_Ialltoallw(plan.A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    plan.A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
-                    plan.ptdma_world, &request[0]);
-    MPI_Ialltoallw(plan.B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    plan.B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
-                    plan.ptdma_world, &request[1]);
-    MPI_Ialltoallw(plan.C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    plan.C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
-                    plan.ptdma_world, &request[2]);     
-    MPI_Ialltoallw(plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                    plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
-                    plan.ptdma_world, &request[3]);
-   
-    MPI_Waitall(4, request.data(), MPI_STATUSES_IGNORE);
-
-    tdma_many(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_sys_rt, plan.n_row_rt);
-
-    // 일단 이렇게 하면 작동은 잘 되는데 왜 잘 작동하는지는 모르겠다
-    // D_rt -> D_rd의 경우 보내는 입장이 바뀌었기 때문에 ddtype을 (ddtype_Bs, ddtype_F) 이렇게 사용해야 하는줄 알았는데 반대로 사용해야 잘 작동함.
-    MPI_Ialltoallw(plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
-                   plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
-                   plan.ptdma_world, &request[0]);        
-
-    MPI_Waitall(1, request.data(), MPI_STATUSES_IGNORE);
-
-    for (j = 0; j < n_sys; ++j) {
-        idx = j*n_row + 0;
-
-        D[idx] = plan.D_rd[j*2 + 0];
-        D[idx + n_row-1] = plan.D_rd[j*2 + 1];
-    }
-
-    for (j = 0; j < n_sys; ++j) {
-        for (i = 1; i < n_row-1; ++i) {
+        for (j = 0; j < n_sys; ++j) {
             idx = j*n_row + 0;
-            D[idx + i] -= A[idx + i] * D[idx] + C[idx + i] * D[idx + n_row-1];
+
+            r = 1.0 / (1.0 - A[idx + 1] * C[idx]);
+            D[idx] = r * (D[idx] - C[idx] * D[idx + 1]);
+            A[idx] *= r;
+            C[idx] = -r * C[idx] * C[idx + 1];
+
+            plan.A_rd[j * 2 + 0] = A[idx];
+            plan.A_rd[j * 2 + 1] = A[idx + n_row-1];
+            plan.B_rd[j * 2 + 0] = 1.0;
+            plan.B_rd[j * 2 + 1] = 1.0;
+            plan.C_rd[j * 2 + 0] = C[idx];
+            plan.C_rd[j * 2 + 1] = C[idx + n_row-1];
+            plan.D_rd[j * 2 + 0] = D[idx];
+            plan.D_rd[j * 2 + 1] = D[idx + n_row-1];
+        }
+        
+        MPI_Ialltoallw(plan.A_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                        plan.A_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                        plan.ptdma_world, &request[0]);
+        MPI_Ialltoallw(plan.B_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                        plan.B_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                        plan.ptdma_world, &request[1]);
+        MPI_Ialltoallw(plan.C_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                        plan.C_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                        plan.ptdma_world, &request[2]);     
+        MPI_Ialltoallw(plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                        plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                        plan.ptdma_world, &request[3]);
+    
+        MPI_Waitall(4, request.data(), MPI_STATUSES_IGNORE);
+
+        tdma_many(plan.A_rt, plan.B_rt, plan.C_rt, plan.D_rt, plan.n_sys_rt, plan.n_row_rt);
+
+        // 일단 이렇게 하면 작동은 잘 되는데 왜 잘 작동하는지는 모르겠다
+        // D_rt -> D_rd의 경우 보내는 입장이 바뀌었기 때문에 ddtype을 (ddtype_Bs, ddtype_F) 이렇게 사용해야 하는줄 알았는데 반대로 사용해야 잘 작동함.
+        MPI_Ialltoallw(plan.D_rt.data(), plan.count_recv.data(), plan.displ_recv.data(), plan.ddtype_Bs.data(),
+                    plan.D_rd.data(), plan.count_send.data(), plan.displ_send.data(), plan.ddtype_Fs.data(),
+                    plan.ptdma_world, &request[0]);        
+
+        MPI_Waitall(1, request.data(), MPI_STATUSES_IGNORE);
+
+        for (j = 0; j < n_sys; ++j) {
+            idx = j*n_row + 0;
+
+            D[idx] = plan.D_rd[j*2 + 0];
+            D[idx + n_row-1] = plan.D_rd[j*2 + 1];
+        }
+
+        for (j = 0; j < n_sys; ++j) {
+            for (i = 1; i < n_row-1; ++i) {
+                idx = j*n_row + 0;
+                D[idx + i] -= A[idx + i] * D[idx] + C[idx + i] * D[idx + n_row-1];
+            }
         }
     }
 }

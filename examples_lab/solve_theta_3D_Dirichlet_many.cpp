@@ -47,8 +47,6 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
         std::cout << "Start to solve" << std::endl;
     }
 
-    // bdy = [periodic, dirichlet, periodic]
-
     auto cx = topo.commX();
     int rankx = cx.myrank;
     PaScaL_TDMA tdma_x; // ijk
@@ -73,7 +71,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     std::vector<double> theta_z(nx1 * ny1 * nz1, 0.0);
     std::vector<double> theta_y(nx1 * ny1 * nz1, 0.0);
     
-    double dt = 0.0005;
+    double dt = 0.001;
     int max_iter = 10;
     MultiTimer timer;
     timer.start("solve_heat");
@@ -91,9 +89,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     idx_im = idx_ijk(i-1, j, k, nx1, ny1);
                     dxdx = sub.dmx_sub[i]*sub.dmx_sub[i];
 
-                    coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 );
-                    coef_x_b = (dt / 2.0 / dxdx) * (-2.0 );
-                    coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 );
+                    coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+                    coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+                    coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
                     
                     rhs_x[ijk] = (coef_x_c*theta[idx_ip] + (1.0+coef_x_b)*theta[ijk] + coef_x_a*theta[idx_im]);
                 }
@@ -131,9 +129,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     idx_km = idx_ijk(i, j, k-1, nx1, ny1);
                     dzdz = sub.dmz_sub[k]*sub.dmz_sub[k];
 
-                    coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 );
-                    coef_z_b = (dt / 2.0 / dzdz) * (-2.0 );
-                    coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 );
+                    coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 + (5.0/3.0) * sub.theta_z_left_index[k] + (1.0/3.0) * sub.theta_z_right_index[k] );
+                    coef_z_b = (dt / 2.0 / dzdz) * (-2.0 -     (2.0) * sub.theta_z_left_index[k] -     (2.0) * sub.theta_z_right_index[k] );
+                    coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 + (1.0/3.0) * sub.theta_z_left_index[k] + (5.0/3.0) * sub.theta_z_right_index[k] );
                     
                     rhs_z[ijk] = (coef_z_c*rhs_y[idx_kp] + (1.0+coef_z_b)*rhs_y[ijk] + coef_z_a*rhs_y[idx_km]);
 
@@ -147,8 +145,72 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
 
         // Calculating A matrix ----------------------------------------------------------------
         
-        // bdy(z) = periodic
-        
+        // bdy(z)
+        for (j=1; j<ny1-1; ++j) {
+
+            dydy = sub.dmy_sub[j]*sub.dmy_sub[j];
+            coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
+            coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -     (2.0) * sub.theta_y_right_index[j] );
+            coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] + (5.0/3.0) * sub.theta_y_right_index[j] ); 
+
+            for (i=1; i<nx1-1; ++i) {
+
+                dxdx = sub.dmx_sub[i]*sub.dmx_sub[i];
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
+
+                // k=0
+                dzdz = sub.dmz_sub[0]*sub.dmz_sub[0];
+                coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 + (5.0/3.0) );
+
+                idx    = idx_ij(i  , j-1, nx1);
+                idx_ip = idx_ij(i+1, j-1, nx1);
+                idx_im = idx_ij(i-1, j-1, nx1);
+                rhs_z[idx_ijk(i, j, 1, nx1, ny1)] += (coef_z_a) * (-coef_y_a) *
+                                                     (-coef_x_a*sub.theta_z_left_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_left_sub[idx] - coef_x_c*sub.theta_z_left_sub[idx_ip]) *
+                                                     sub.theta_z_left_index[1];
+
+                idx    = idx_ij(i  , j, nx1);
+                idx_ip = idx_ij(i+1, j, nx1);
+                idx_im = idx_ij(i-1, j, nx1);
+                rhs_z[idx_ijk(i, j, 1, nx1, ny1)] += (coef_z_a) * (1.0-coef_y_b) * 
+                                                     (-coef_x_a*sub.theta_z_left_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_left_sub[idx] - coef_x_c*sub.theta_z_left_sub[idx_ip]) *
+                                                     sub.theta_z_left_index[1];
+
+                idx    = idx_ij(i  , j+1, nx1);
+                idx_ip = idx_ij(i+1, j+1, nx1);
+                idx_im = idx_ij(i-1, j+1, nx1);
+                rhs_z[idx_ijk(i, j, 1, nx1, ny1)] += (coef_z_a) * (-coef_y_c)  *
+                                                     (-coef_x_a*sub.theta_z_left_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_left_sub[idx] - coef_x_c*sub.theta_z_left_sub[idx_ip]) * 
+                                                     sub.theta_z_left_index[1];
+
+                // k=nz1-1
+                dzdz = sub.dmz_sub[nz1-1]*sub.dmz_sub[nz1-1];
+                coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 + (5.0/3.0) );
+
+                idx    = idx_ij(i  , j-1, nx1);
+                idx_ip = idx_ij(i+1, j-1, nx1);
+                idx_im = idx_ij(i-1, j-1, nx1);
+                rhs_z[idx_ijk(i, j, nz1-2, nx1, ny1)] += (coef_z_c) * (-coef_y_a) *
+                                                         (-coef_x_a*sub.theta_z_right_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_right_sub[idx] - coef_x_c*sub.theta_z_right_sub[idx_ip]) *
+                                                         sub.theta_z_right_index[nz1-2];
+
+                idx    = idx_ij(i  , j, nx1);
+                idx_ip = idx_ij(i+1, j, nx1);
+                idx_im = idx_ij(i-1, j, nx1);
+                rhs_z[idx_ijk(i, j, nz1-2, nx1, ny1)] += (coef_z_c) * (1.0-coef_y_b) *
+                                                         (-coef_x_a*sub.theta_z_right_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_right_sub[idx] - coef_x_c*sub.theta_z_right_sub[idx_ip]) *
+                                                         sub.theta_z_right_index[nz1-2];
+                idx    = idx_ij(i  , j+1, nx1);
+                idx_ip = idx_ij(i+1, j+1, nx1);
+                idx_im = idx_ij(i-1, j+1, nx1);
+                rhs_z[idx_ijk(i, j, nz1-2, nx1, ny1)] += (coef_z_c) * (-coef_y_c) *
+                                                         (-coef_x_a*sub.theta_z_right_sub[idx_im] + (1.0-coef_x_b)*sub.theta_z_right_sub[idx] - coef_x_c*sub.theta_z_right_sub[idx_ip]) *
+                                                         sub.theta_z_right_index[nz1-2];         
+            }
+        }
+
         // timer.start("solve_z");
         // z solve
         for (j=1; j<ny1-1; ++j) {
@@ -158,9 +220,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     ki = idx_ki(k-1, i-1, nz1-2);
                     dzdz = sub.dmz_sub[k]*sub.dmz_sub[k];
 
-                    coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 );
-                    coef_z_b = (dt / 2.0 / dzdz) * (-2.0 );
-                    coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 );
+                    coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 + (5.0/3.0) * sub.theta_z_left_index[k] + (1.0/3.0) * sub.theta_z_right_index[k] );
+                    coef_z_b = (dt / 2.0 / dzdz) * (-2.0 -     (2.0) * sub.theta_z_left_index[k] -     (2.0) * sub.theta_z_right_index[k] );
+                    coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 + (1.0/3.0) * sub.theta_z_left_index[k] + (5.0/3.0) * sub.theta_z_right_index[k] );
 
                     Azz[ki] = -coef_z_a;
                     Bzz[ki] = (1.0-coef_z_b);
@@ -168,7 +230,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     Dzz[ki] = rhs_z[ijk];
                 }
             }
-            tdma_z.PaScaL_TDMA_many_solve_cycle(pz_many, Azz, Bzz, Czz, Dzz, (nx1-2), (nz1-2));
+            tdma_z.PaScaL_TDMA_many_solve(pz_many, Azz, Bzz, Czz, Dzz, (nx1-2), (nz1-2));
             for (i=1; i<nx1-1; ++i) {
                 for (k=1; k<nz1-1; ++k) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
@@ -184,9 +246,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             for (i=1; i<nx1-1; ++i) {
 
                 dxdx = sub.dmx_sub[i]*sub.dmx_sub[i];
-                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 );
-                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 );
-                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 );
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+                coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
 
                 // j=0
                 dydy = sub.dmy_sub[0]*sub.dmy_sub[0];
@@ -240,7 +302,27 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
         }
         // std::cout << "[solve_y] elapsed: " << timer.elapsed_ms("solve_y") << " ms\n";
 
-        // bdy(x) = periodic
+        // bdy(x)
+        for (k=1; k<nz1-1; ++k) {
+            for (j=1; j<ny1-1; ++j) {
+                
+                // i=0
+                dxdx = sub.dmx_sub[0]*sub.dmx_sub[0];
+                coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) );
+
+                idx = idx_jk(j, k, ny1);
+                theta_y[idx_ijk(1, j, k, nx1, ny1)] += coef_x_a * sub.theta_x_left_index[1] * 
+                                                       sub.theta_x_left_sub[idx];
+
+                // i=nx1-1
+                dxdx = sub.dmx_sub[nx1-1]*sub.dmx_sub[nx1-1];
+                coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) );
+
+                idx = idx_jk(j, k, ny1);
+                theta_y[idx_ijk(nx1-2, j, k, nx1, ny1)] += coef_x_c * sub.theta_x_right_index[nx1-2] * 
+                                                           sub.theta_x_right_sub[idx];
+            }
+        }
 
         // timer.start("solve_x");
         // x solve
@@ -251,9 +333,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     ij = idx_ij(i-1, j-1, nx1-2);
                     dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
 
-                    coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 );
-                    coef_x_b = (dt / 2.0 / dxdx) * (-2.0 );
-                    coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 );
+                    coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 + (5.0/3.0) * sub.theta_x_left_index[i] + (1.0/3.0) * sub.theta_x_right_index[i] );
+                    coef_x_b = (dt / 2.0 / dxdx) * (-2.0 -     (2.0) * sub.theta_x_left_index[i] -     (2.0) * sub.theta_x_right_index[i] );
+                    coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 + (1.0/3.0) * sub.theta_x_left_index[i] + (5.0/3.0) * sub.theta_x_right_index[i] );
 
                     Axx[ij] = -coef_x_a;
                     Bxx[ij] = (1.0-coef_x_b);
@@ -261,7 +343,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                     Dxx[ij] = theta_y[ijk];
                 }
             }
-            tdma_x.PaScaL_TDMA_many_solve_cycle(px_many, Axx, Bxx, Cxx, Dxx, ny1-2, nx1-2);
+            tdma_x.PaScaL_TDMA_many_solve(px_many, Axx, Bxx, Cxx, Dxx, ny1-2, nx1-2);
             for (j=1; j<ny1-1; ++j) {
                 for (i=1; i<nx1-1; ++i) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
