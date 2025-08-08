@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   // x, y, z
   topo.init(
     { params.np_dim[0], params.np_dim[1], params.np_dim[2] },
-    { false, false, false }
+    { true, false, true }
   );
 
   topo.make();
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
       for (int i=1; i<(sub.nx_sub + 1)-1; ++i) {
         ijk = k*(sub.nx_sub + 1)*(sub.ny_sub + 1) + j*(sub.nx_sub + 1) + i;
 
-        exact_value = sin(Pi*sub.x_sub[i])*sin(Pi*sub.y_sub[j])*sin(Pi*sub.z_sub[k]) * exp(-3*Pi*Pi * 0.01) +
+        exact_value = sin(Pi*sub.x_sub[i])*sin(Pi*sub.y_sub[j])*sin(Pi*sub.z_sub[k]) * exp(-3*Pi*Pi * 0.005) +
                       cos(Pi*sub.x_sub[i])*cos(Pi*sub.y_sub[j])*cos(Pi*sub.z_sub[k]);
 
         local_error += pow(theta[ijk] - exact_value, 2);

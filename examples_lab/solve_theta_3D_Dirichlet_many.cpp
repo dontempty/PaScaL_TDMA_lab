@@ -72,8 +72,9 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     std::vector<double> theta_y(nx1 * ny1 * nz1, 0.0);
     
     double dt = 0.001;
-    int max_iter = 1;
+    int max_iter = 10;
     MultiTimer timer;
+    timer.start("solve_heat");
     for (int t_step=0; t_step<max_iter; ++t_step) {
 
         // timer.start("rhs");
@@ -97,7 +98,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        sub.ghostcellUpdate(rhs_x, cx, cy, cz, params);
+        // sub.ghostcellUpdate(rhs_x, cx, cy, cz, params);
 
         // rhs_y ---------------------------
         for (i=1; i<nx1-1; ++i) {
@@ -117,7 +118,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        sub.ghostcellUpdate(rhs_y, cx, cy, cz, params);
+        // sub.ghostcellUpdate(rhs_y, cx, cy, cz, params);
 
         // rhs_z ---------------------------
         for (j=1; j<ny1-1; ++j) {
@@ -139,7 +140,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        sub.ghostcellUpdate(rhs_z, cx, cy, cz, params);
+        // sub.ghostcellUpdate(rhs_z, cx, cy, cz, params);
         // std::cout << "[myrank] = " << myrank << "| [rhs] elapsed: " << timer.elapsed_ms("rhs") << " ms\n";
 
         // Calculating A matrix ----------------------------------------------------------------
@@ -359,6 +360,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
         sub.ghostcellUpdate(theta, cx, cy, cz, params);
 
     }   // Time step end------------------------
+    std::cout << "[solve_heat] elapsed: " << timer.elapsed_ms("solve_heat") << " ms\n";
 
     if (myrank==0) {
         std::cout << "tN = " << dt * max_iter << std::endl;

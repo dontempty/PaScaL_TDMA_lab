@@ -316,7 +316,7 @@ void MPISubdomain::boundary(std::vector<double>& theta,
     int nx1 = nx_sub + 1;
     int ny1 = ny_sub + 1;
     int nz1 = nz_sub + 1;
-    int ij, jk, ik;
+    int ij, jk, ki, ik;
     int ijk;
 
     // X
@@ -332,7 +332,7 @@ void MPISubdomain::boundary(std::vector<double>& theta,
         }
     }
 
-    // Y
+    // // Y (fixed)
     for (int k=0; k<nz1; ++k) {
         for (int i=0; i<nx1; ++i) {
             ik = idx_ik(i, k, nx1);
@@ -344,6 +344,19 @@ void MPISubdomain::boundary(std::vector<double>& theta,
             theta_y_right_sub[ik] = theta[ijk];
         }
     }
+
+    // // Y (flexible)
+    // for (int i=0; i<nx1; ++i) {
+    //     for (int k=0; k<nz1; ++k) {
+    //         ki = idx_ki(k, i, nz1);
+
+    //         ijk = idx_ijk(i, 0, k, nx1, ny1);
+    //         theta_y_left_sub[ki] = theta[ijk];
+
+    //         ijk = idx_ijk(i, ny1-1, k, nx1, ny1);
+    //         theta_y_right_sub[ki] = theta[ijk];
+    //     }
+    // }
 
     // Z
     for (int j=0; j<ny1; ++j) {

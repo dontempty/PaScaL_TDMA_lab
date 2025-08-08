@@ -71,9 +71,10 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     std::vector<double> theta_z(nx1 * ny1 * nz1, 0.0);
     std::vector<double> theta_y(nx1 * ny1 * nz1, 0.0);
     
-    double dt = 0.001;
-    int max_iter = 1;
+    double dt = 0.0005;
+    int max_iter = 20;
     MultiTimer timer;
+    timer.start("solve_heat");
     for (int t_step=0; t_step<max_iter; ++t_step) {
 
         // timer.start("rhs");
@@ -210,7 +211,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        timer.start("solve_z");
+        // timer.start("solve_z");
         // z solve
         for (j=1; j<ny1-1; ++j) {
             for (i=1; i<nx1-1; ++i) {
@@ -234,7 +235,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                 }
             }
         }
-        std::cout << "[solve_z] elapsed: " << timer.elapsed_ms("solve_z") << " ms\n";
+        // std::cout << "[solve_z] elapsed: " << timer.elapsed_ms("solve_z") << " ms\n";
 
         // bdy(y)
         for (k=1; k<nz1-1; ++k) {
@@ -267,7 +268,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        timer.start("solve_y");
+        // timer.start("solve_y");
         // y solve
         for (i=1; i<nx1-1; ++i) {
             for (k=1; k<nz1-1; ++k) {
@@ -291,7 +292,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
                 }
             }
         }
-        std::cout << "[solve_y] elapsed: " << timer.elapsed_ms("solve_y") << " ms\n";
+        // std::cout << "[solve_y] elapsed: " << timer.elapsed_ms("solve_y") << " ms\n";
 
         // bdy(x)
         for (k=1; k<nz1-1; ++k) {
@@ -315,7 +316,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             }
         }
 
-        timer.start("solve_x");
+        // timer.start("solve_x");
         // x solve
         for (k=1; k<nz1-1; ++k) {
             for (j=1; j<ny1-1; ++j) {
@@ -341,12 +342,13 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
         }
         // timer.start("solve_x");
         // tdma_x.PaScaL_TDMA_single_solve(px_single, Ax, Bx, Cx, Dx, nx1-2);
-        std::cout << "[solve_x] elapsed: " << timer.elapsed_ms("solve_x") << " ms\n";
+        // std::cout << "[solve_x] elapsed: " << timer.elapsed_ms("solve_x") << " ms\n";
  
         // Update ghostcells from the solutions.
         sub.ghostcellUpdate(theta, cx, cy, cz, params);
 
     }   // Time step end------------------------
+    std::cout << "[solve_heat] elapsed: " << timer.elapsed_ms("solve_heat") << " ms\n";
 
     tdma_x.PaScaL_TDMA_plan_single_destroy(px_single);
     tdma_y.PaScaL_TDMA_plan_single_destroy(py_single);

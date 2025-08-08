@@ -23,7 +23,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     // 내가 사용할거
     int i, j, k;
     int idx;
-    int ij, jk, ik, ki;
+    int ij, jk, ik;
     int ijk;
     int idx_ip, idx_im;
     int idx_jp, idx_jm;
@@ -39,7 +39,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     int nx1 = sub.nx_sub+1; // number of cell with ghost cell in x axis
 
     // 1) 계획(plan) 객체 선언
-    PaScaL_TDMA::ptdma_plan_many px_many, py_many, pz_many;
+    PaScaL_TDMA::ptdma_plan_single px_single, py_single, pz_single;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
@@ -51,21 +51,21 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
 
     auto cx = topo.commX();
     int rankx = cx.myrank;
-    PaScaL_TDMA tdma_x; // ijk
-    tdma_x.PaScaL_TDMA_plan_many_create(px_many, sub.ny_sub-1, cx.myrank, cx.nprocs, cx.comm);
-    std::vector<double> Axx((nx1-2)*(ny1-2)), Bxx((nx1-2)*(ny1-2)), Cxx((nx1-2)*(ny1-2)), Dxx((nx1-2)*(ny1-2));
+    PaScaL_TDMA tdma_x;
+    tdma_x.PaScaL_TDMA_plan_single_create(px_single, cx.myrank, cx.nprocs, cx.comm, 0);
+    std::vector<double> Ax(nx1-2), Bx(nx1-2), Cx(nx1-2), Dx(nx1-2);
 
     auto cy = topo.commY();
     int ranky = cy.myrank;
-    PaScaL_TDMA tdma_y; // jki
-    tdma_y.PaScaL_TDMA_plan_many_create(py_many, sub.nz_sub-1, cy.myrank, cy.nprocs, cy.comm);
-    std::vector<double> Ayy((ny1-2)*(nz1-2)), Byy((ny1-2)*(nz1-2)), Cyy((ny1-2)*(nz1-2)), Dyy((ny1-2)*(nz1-2));
+    PaScaL_TDMA tdma_y;
+    tdma_y.PaScaL_TDMA_plan_single_create(py_single, cy.myrank, cy.nprocs, cy.comm, 0);
+    std::vector<double> Ay(ny1-2), By(ny1-2), Cy(ny1-2), Dy(ny1-2);
 
     auto cz = topo.commZ();
     int rankz = cz.myrank;
-    PaScaL_TDMA tdma_z; // kij
-    tdma_z.PaScaL_TDMA_plan_many_create(pz_many, sub.nx_sub-1, cz.myrank, cz.nprocs, cz.comm);
-    std::vector<double> Azz((nz1-2)*(nx1-2)), Bzz((nz1-2)*(nx1-2)), Czz((nz1-2)*(nx1-2)), Dzz((nz1-2)*(nx1-2));
+    PaScaL_TDMA tdma_z;
+    tdma_z.PaScaL_TDMA_plan_single_create(pz_single, cz.myrank, cz.nprocs, cz.comm, 0);
+    std::vector<double> Az(nz1-2), Bz(nz1-2), Cz(nz1-2), Dz(nz1-2);
     
     std::vector<double> rhs_x(nx1 * ny1 * nz1, 0.0);
     std::vector<double> rhs_y(nx1 * ny1 * nz1, 0.0);
@@ -147,7 +147,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
 
         // Calculating A matrix ----------------------------------------------------------------
         
-        // bdy(z) = periodic
+        // bdy(z) = Periodic
         
         // timer.start("solve_z");
         // z solve
@@ -155,25 +155,21 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             for (i=1; i<nx1-1; ++i) {
                 for (k=1; k<nz1-1; ++k) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    ki = idx_ki(k-1, i-1, nz1-2);
                     dzdz = sub.dmz_sub[k]*sub.dmz_sub[k];
 
                     coef_z_a = (dt / 2.0 / dzdz) * ( 1.0 );
                     coef_z_b = (dt / 2.0 / dzdz) * (-2.0 );
                     coef_z_c = (dt / 2.0 / dzdz) * ( 1.0 );
 
-                    Azz[ki] = -coef_z_a;
-                    Bzz[ki] = (1.0-coef_z_b);
-                    Czz[ki] = -coef_z_c;
-                    Dzz[ki] = rhs_z[ijk];
+                    Az[k-1] = -coef_z_a;
+                    Bz[k-1] = (1.0-coef_z_b);
+                    Cz[k-1] = -coef_z_c;
+                    Dz[k-1] = rhs_z[ijk];
                 }
-            }
-            tdma_z.PaScaL_TDMA_many_solve_cycle(pz_many, Azz, Bzz, Czz, Dzz, (nx1-2), (nz1-2));
-            for (i=1; i<nx1-1; ++i) {
+                tdma_z.PaScaL_TDMA_single_solve_cycle(pz_single, Az, Bz, Cz, Dz, nz1-2);
                 for (k=1; k<nz1-1; ++k) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    ki = idx_ki(k-1, i-1, nz1-2);
-                    theta_z[ijk] = Dzz[ki];
+                    theta_z[ijk] = Dz[k-1];
                 }
             }
         }
@@ -216,25 +212,21 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             for (k=1; k<nz1-1; ++k) {
                 for (j=1; j<ny1-1; ++j) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    jk = idx_jk(j-1, k-1, ny1-2);
                     dydy = sub.dmy_sub[j]*sub.dmy_sub[j];
 
                     coef_y_a = (dt / 2.0 / dydy) * ( 1.0 + (5.0/3.0) * sub.theta_y_left_index[j] + (1.0/3.0) * sub.theta_y_right_index[j] );
                     coef_y_b = (dt / 2.0 / dydy) * (-2.0 -     (2.0) * sub.theta_y_left_index[j] -     (2.0) * sub.theta_y_right_index[j] );
                     coef_y_c = (dt / 2.0 / dydy) * ( 1.0 + (1.0/3.0) * sub.theta_y_left_index[j] + (5.0/3.0) * sub.theta_y_right_index[j] );
 
-                    Ayy[jk] = -coef_y_a;
-                    Byy[jk] = (1.0-coef_y_b);
-                    Cyy[jk] = -coef_y_c;
-                    Dyy[jk] = theta_z[ijk];
+                    Ay[j-1] = -coef_y_a;
+                    By[j-1] = (1.0-coef_y_b);
+                    Cy[j-1] = -coef_y_c;
+                    Dy[j-1] = theta_z[ijk];
                 }
-            }
-            tdma_y.PaScaL_TDMA_many_solve(py_many, Ayy, Byy, Cyy, Dyy, nz1-2, ny1-2);
-            for (k=1; k<nz1-1; ++k) {
+                tdma_y.PaScaL_TDMA_single_solve(py_single, Ay, By, Cy, Dy, ny1-2);
                 for (j=1; j<ny1-1; ++j) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    jk = idx_jk(j-1, k-1, ny1-2);
-                    theta_y[ijk] = Dyy[jk];
+                    theta_y[ijk] = Dy[j-1];
                 }
             }
         }
@@ -248,25 +240,21 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
             for (j=1; j<ny1-1; ++j) {
                 for (i=1; i<nx1-1; ++i) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    ij = idx_ij(i-1, j-1, nx1-2);
                     dxdx = (sub.dmx_sub[i]*sub.dmx_sub[i]);
 
                     coef_x_a = (dt / 2.0 / dxdx) * ( 1.0 );
                     coef_x_b = (dt / 2.0 / dxdx) * (-2.0 );
                     coef_x_c = (dt / 2.0 / dxdx) * ( 1.0 );
 
-                    Axx[ij] = -coef_x_a;
-                    Bxx[ij] = (1.0-coef_x_b);
-                    Cxx[ij] = -coef_x_c;
-                    Dxx[ij] = theta_y[ijk];
+                    Ax[i-1] = -coef_x_a;
+                    Bx[i-1] = (1.0-coef_x_b);
+                    Cx[i-1] = -coef_x_c;
+                    Dx[i-1] = theta_y[ijk];
                 }
-            }
-            tdma_x.PaScaL_TDMA_many_solve_cycle(px_many, Axx, Bxx, Cxx, Dxx, ny1-2, nx1-2);
-            for (j=1; j<ny1-1; ++j) {
+                tdma_x.PaScaL_TDMA_single_solve_cycle(px_single, Ax, Bx, Cx, Dx, nx1-2);
                 for (i=1; i<nx1-1; ++i) {
                     ijk = idx_ijk(i, j, k, nx1, ny1);
-                    ij = idx_ij(i-1, j-1, nx1-2);
-                    theta[ijk] = Dxx[ij];
+                    theta[ijk] = Dx[i-1];
                 }
             }
         }
@@ -280,10 +268,7 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     }   // Time step end------------------------
     std::cout << "[solve_heat] elapsed: " << timer.elapsed_ms("solve_heat") << " ms\n";
 
-    if (myrank==0) {
-        std::cout << "tN = " << dt * max_iter << std::endl;
-    }
-    tdma_x.PaScaL_TDMA_plan_many_destroy(px_many, px_many.nprocs);
-    tdma_y.PaScaL_TDMA_plan_many_destroy(py_many, py_many.nprocs);
-    tdma_z.PaScaL_TDMA_plan_many_destroy(pz_many, pz_many.nprocs);
+    tdma_x.PaScaL_TDMA_plan_single_destroy(px_single);
+    tdma_y.PaScaL_TDMA_plan_single_destroy(py_single);
+    tdma_z.PaScaL_TDMA_plan_single_destroy(pz_single);
 }
