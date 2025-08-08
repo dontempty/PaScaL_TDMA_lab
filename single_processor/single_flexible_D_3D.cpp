@@ -1,10 +1,11 @@
-#include "save.hpp"
+#include "../examples_lab/save.hpp"
+#include "../examples_lab/index.hpp"
+
+
 #include "iostream"
 #include <vector>
 #include <cmath>
 #include <chrono> 
-
-#include "index.hpp"
 
 void tdma_single(std::vector<double>& a, std::vector<double>& b, std::vector<double>& c, std::vector<double>& d, int n1) {
     int i;
@@ -200,7 +201,7 @@ int main() {
 
     // save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
 
-    int max_iter = 1;
+    int max_iter = 100;
     double dt = 0.001;
     int time;
     auto start = std::chrono::steady_clock::now();
@@ -226,19 +227,6 @@ int main() {
                 }
             }
         }
-
-        for (k=0; k<nz1; ++k) {
-            for (j=0; j<ny1; ++j) {
-                for (i=0; i<nx1; ++i) {
-                    ijk = idx_ijk(i, j, k, nx1, ny1);
-                    jki = idx_jki(j, k, i, ny1, nz1);
-
-                    theta[ijk] = rhs_x[jki];
-                }
-            }
-        }
-
-        save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
 
         // rhs_y ---------------------------
         for (i=1; i<nx1-1; ++i) {
@@ -466,7 +454,7 @@ int main() {
 
     // save results
     std::cout << "tN = " << dt * max_iter << std::endl;
-    // save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
+    save_3d_to_csv(theta, nx1, ny1, nz1, "results", "theta_single", 15);
 
     return 0;
 }
