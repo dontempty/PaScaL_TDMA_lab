@@ -7,6 +7,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 
 // trim 유틸
 static inline void trim(std::string &s) {
@@ -47,13 +48,14 @@ void GlobalParams::load(const std::string& filename) {
     }
 
     // 이제 모든 형식이 param에 들어가 있음
-    nx       = std::stoi(param.at("nx"));
-    ny       = std::stoi(param.at("ny"));
-    nz       = std::stoi(param.at("nz"));
-    np_dim[0]= std::stoi(param.at("npx"));
-    np_dim[1]= std::stoi(param.at("npy"));
-    np_dim[2]= std::stoi(param.at("npz"));
-    Tmax     = std::stoi(param.at("Tmax"));
+    nx        = std::stoi(param.at("nx"));
+    ny        = std::stoi(param.at("ny"));
+    nz        = std::stoi(param.at("nz"));
+    np_dim[0] = std::stoi(param.at("npx"));
+    np_dim[1] = std::stoi(param.at("npy"));
+    np_dim[2] = std::stoi(param.at("npz"));
+    Tmax      = std::stod(param.at("Tmax"));
+    dt        = std::stod(param.at("dt"));
 
 #ifdef THREAD_PARAMS
     thread_in_x        = std::stoi(param.at("thread_in_x"));
@@ -68,7 +70,6 @@ void GlobalParams::load(const std::string& filename) {
     nxm = nx - 1; nym = ny - 1; nzm = nz - 1;
     nxp = nx + 1; nyp = ny + 1; nzp = nz + 1;
 
-    dtStart = 0.01; tStart = 0.0;
     x0 = -1; xN = 1;
     y0 = -1; yN = 1;
     z0 = -1; zN = 1;
@@ -76,6 +77,16 @@ void GlobalParams::load(const std::string& filename) {
     dx = lx / (nx - 1);
     dy = ly / (ny - 1);
     dz = lz / (nz - 1);
+
+    // 시간
+    Nt = static_cast<int>(std::round(Tmax / dt));
+    double eps = 1e-13;
+    bool is_exact = std::fabs(Nt - std::round(Nt)) < eps * std::max(1.0, std::fabs(Nt));
+    if (is_exact) {
+        std::cout << "Exact division: Nt = " << Nt << std::endl;
+    } else {
+        std::cout << "Not an exact integer result." << std::endl;
+    }
 }
 
 // GlobalParams params;

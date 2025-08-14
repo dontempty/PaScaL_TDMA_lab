@@ -71,8 +71,8 @@ void solve_theta::solve_theta_plan_single(std::vector<double>& theta)
     std::vector<double> theta_z(nx1 * ny1 * nz1, 0.0);
     std::vector<double> theta_y(nx1 * ny1 * nz1, 0.0);
     
-    double dt = 0.0005;
-    int max_iter = 20;
+    double dt = params.dt;
+    int max_iter = params.Nt;
     MultiTimer timer;
     timer.start("solve_heat");
     for (int t_step=0; t_step<max_iter; ++t_step) {

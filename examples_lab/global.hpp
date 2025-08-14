@@ -14,12 +14,12 @@ public:
     void load(const std::string& filename);
 
     // 물리 및 수치 파라미터
-    int Tmax;
+    double Tmax, dt;
+    int Nt;
     int nx, ny, nz;
     int nxm, nym, nzm;
     int nxp, nyp, nzp;
 
-    double dt, dtStart, tStart;
     double lx, ly, lz;
     double x0, xN, y0, yN, z0, zN;
     double dx, dy, dz;
