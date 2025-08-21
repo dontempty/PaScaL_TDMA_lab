@@ -11,9 +11,9 @@ SRC    := main_lab.cpp \
           mpi_topology.cpp \
           mpi_subdomain.cpp \
           solve_theta.cpp \
-          ../scr/pascal_tdma.cpp \
-		  ../scr/tdmas.cpp \
-		  ../scr/para_range.cpp
+          ../src/pascal_tdma.cpp \
+		  ../src/tdmas.cpp \
+		  ../src/para_range.cpp
 
 OBJ    := $(SRC:.cpp=.o)
 DEP    := $(SRC:.cpp=.d)
@@ -30,22 +30,18 @@ INPUT_FILE := ../run/PARA_INPUT.txt
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	@echo "[Link] $@"
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(MPI_LIB)
 
 # ── 패턴 규칙 + 자동 의존성 생성 ───────────────────────────
 %.o: %.cpp
-	@echo "[Compile] $<"
 	$(CXX) $(CXXFLAGS) $(MPI_INC) -MMD -MP -c $< -o $@
 
 -include $(DEP)
 
 # ── 실행 ───────────────────────────────────────────────────
 run: $(TARGET)
-	@echo "[Run] $(MPIEXEC) -n $(NPROCS) ./$(TARGET) $(INPUT_FILE)"
 	$(MPIEXEC) -n $(NPROCS) ./$(TARGET) $(INPUT_FILE)
 
 # ── 정리 ───────────────────────────────────────────────────
 clean:
-	@echo "[Clean] Removing objects and dependencies"
 	rm -f $(TARGET) $(OBJ) $(DEP)

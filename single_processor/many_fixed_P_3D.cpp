@@ -122,9 +122,9 @@ int main() {
     int i, j, k;
 
     // paramater
-    int Nx = 128;
-    int Ny = 128;
-    int Nz = 128;
+    int Nx = 512;
+    int Ny = 512;
+    int Nz = 512;
     int nx1 = Nx+2;
     int ny1 = Ny+2;
     int nz1 = Nz+2;

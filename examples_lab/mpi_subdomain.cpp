@@ -1,6 +1,6 @@
 // mpi_subdomain.cpp
 #include "mpi_subdomain.hpp"
-#include "../scr/para_range.hpp"
+#include "../src/para_range.hpp"
 #include <cmath>
 #include "index.hpp"
 #include "iostream"

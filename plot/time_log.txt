@@ -1,6 +1,40 @@
-[solve_z] elapsed: 12 ms
-[solve_y] elapsed: 13 ms
-[solve_x] elapsed: 32 ms
-[solve_z] elapsed: 12 ms
-[solve_y] elapsed: 13 ms
-[solve_x] elapsed: 31 ms
+[preprocess]: 372134 ms
+[preprocess]: 370027 ms
+[preprocess]: 365800 ms
+[preprocess]: 565722 ms
+[preprocess]: 559578 ms
+[preprocess]: 359420 ms
+[preprocess]: 560771 ms
+[preprocess]: 554222 ms
+[alltoall-1]: 177636148 ms
+[alltoall-1]: 89453166 ms
+[tdma_many]: 13949 ms
+[alltoall-1]: 83997794 ms
+[tdma_many]: 9751 ms
+[alltoall-1]: 113473642 ms
+[tdma_many]: 9420 ms
+[alltoall-1]: 20035456 ms
+[tdma_many]: 14500 ms
+[alltoall-1]: 301938 ms
+[alltoall-1]: 76150714 ms
+[tdma_many]: 9565 ms
+[alltoall-1]: 171380759 ms
+[tdma_many]: 10310 ms
+[tdma_many]: 11009 ms
+[tdma_many]: 13475 ms
+[alltoall-2]: 62877 ms
+[alltoall-2]: 56465 ms
+[alltoall-2]: 26492 ms
+[alltoall-2]: 70139 ms
+[alltoall-2]: 66259 ms
+[alltoall-2]: 66141 ms
+[alltoall-2]: 66121 ms
+[alltoall-2]: 66482 ms
+[solve]: 110256 ms
+[solve]: 144161 ms
+[solve]: 163439 ms
+[solve]: 153820 ms
+[solve]: 178502 ms
+[solve]: 193856 ms
+[solve]: 188747 ms
+[solve]: 194787 ms

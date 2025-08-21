@@ -1,0 +1,76 @@
+# src/Makefile  — C++ 전용
+
+# 상위에서 공통 설정을 쓴다면 유지
+include ../Makefile.inc
+
+# 기본값(상위에서 정의 안 됐을 때만 적용)
+CXX      ?= mpicxx
+AR       ?= ar
+ARFLAGS  ?= rcs
+CXXFLAGS ?= -O3 -std=c++17 -fPIC
+# 필요 시 상위에서 LDFLAGS, INCLUDES(-I...) 등을 넘겨도 됨
+
+# 경로/이름
+SRCDIR   := .
+OBJDIR   := ./obj
+INCDIR   := ../include
+LIBDIR   := ../lib
+LIB      := libpascal_tdma.a
+
+# 소스 목록
+SRC := para_range.cpp tdmas.cpp pascal_tdma.cpp
+
+# CUDA 사용 시 (선택)
+ifdef USE_CUDA
+  NVCC      ?= nvcc
+  NVCCFLAGS ?= -O3 -std=c++17 -Xcompiler -fPIC
+  SRC += tdmas_cuda.cu pascal_tdma_cuda.cu
+endif
+
+# 공개 헤더가 있다면 여기에 지정(없으면 비워두세요)
+HEADERS ?=
+
+# 오브젝트/디펜던시
+CPP_OBJ := $(patsubst %.cpp,$(OBJDIR)/%.o,$(filter %.cpp,$(SRC)))
+CU_OBJ  := $(patsubst %.cu, $(OBJDIR)/%.o,$(filter %.cu,$(SRC)))
+OBJ     := $(CPP_OBJ) $(CU_OBJ)
+DEP     := $(OBJ:.o=.d)
+
+.PHONY: all lib inc objdir clean
+
+all: lib inc
+
+# 라이브러리 빌드 + 상위 lib/로 복사
+lib: objdir $(LIB)
+	@printf '[Copy] -> %s\n' $(LIBDIR)
+	@mkdir -p $(LIBDIR)
+	@cp $(LIB) $(LIBDIR)/
+
+$(LIB): $(OBJ)
+	@printf '[AR] %s\n' $@
+	$(AR) $(ARFLAGS) $@ $^
+
+# 공개 헤더 복사(HEADERS 비었으면 아무 것도 안 함)
+inc:
+	@mkdir -p $(INCDIR)
+	@[ -z "$(HEADERS)" ] || cp $(HEADERS) $(INCDIR)/
+
+# 오브젝트 디렉터리
+objdir:
+	@mkdir -p $(OBJDIR)
+
+# C++ 컴파일(.cpp -> obj)
+$(OBJDIR)/%.o: %.cpp | objdir
+	@printf '[CXX] %s\n' $<
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+# CUDA 컴파일(.cu -> obj) — USE_CUDA=1인 경우만 대상 존재
+$(OBJDIR)/%.o: %.cu | objdir
+	@printf '[NVCC] %s\n' $<
+	$(NVCC) $(NVCCFLAGS) -MMD -Xcompiler -Wall -c $< -o $@
+
+# 자동 의존성 포함
+-include $(DEP)
+
+clean:
+	rm -rf $(OBJDIR) $(LIB)

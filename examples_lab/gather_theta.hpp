@@ -3,7 +3,7 @@
 #include <vector>
 #include "mpi_subdomain.hpp"
 #include "global.hpp"
-#include "../scr/para_range.hpp"
+#include "../src/para_range.hpp"
 
 void gather_theta(std::vector<double>& global_theta, std::vector<double>& theta, const GlobalParams& params, MPISubdomain& sub, const MPITopology& topo, int myrank) {
 

@@ -4,6 +4,10 @@ single_processor/results/*.csv
 examples_lab/*.exe
 examples_lab/results/*.csv
 
+plot/*.ipynb
+plot/*.txt
+plot/*.csv
+
 *.o
 *.out
 *.log
